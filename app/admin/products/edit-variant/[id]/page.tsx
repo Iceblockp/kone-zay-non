@@ -32,12 +32,18 @@ export default function EditVariantPage() {
   const { data: baseProductData, isLoading: isLoadingBaseProduct } =
     useBaseProduct(baseProductId);
 
-  const [formData, setFormData] = useState({
-    variantName: "",
-    unit: "",
-    sizeValue: "",
-    barcode: "",
-    imageUrl: "", // Still using localStorage for images temporarily
+  const [formData, setFormData] = useState<{
+    variantName: string | null;
+    unit: string | null;
+    sizeValue: string | null;
+    barcode: string | null;
+    imageUrl: string | null;
+  }>({
+    variantName: null,
+    unit: null,
+    sizeValue: null,
+    barcode: null,
+    imageUrl: null,
   });
 
   const units = [
@@ -58,29 +64,26 @@ export default function EditVariantPage() {
   ];
 
   useEffect(() => {
-    if (variantData) {
+    if (
+      variantData &&
+      (formData.variantName === null ||
+        formData.unit === null ||
+        formData.sizeValue === null ||
+        formData.barcode === null ||
+        formData.imageUrl === null)
+    ) {
       const variant = variantData;
       setBaseProductId(variant.baseProductId);
-
-      // Check if there's an imageUrl in localStorage (temporary solution until API supports images)
-      const productImages = localStorage.getItem("productImages");
-      let imageUrl = "";
-      if (productImages) {
-        const parsedImages = JSON.parse(productImages);
-        if (parsedImages[variantId]) {
-          imageUrl = parsedImages[variantId];
-        }
-      }
 
       setFormData({
         variantName: variant.variantName,
         unit: variant.unit,
         sizeValue: variant.sizeValue?.toString() || "",
         barcode: variant.barcode || "",
-        imageUrl: imageUrl,
+        imageUrl: variant.imageUrl || "", // Get imageUrl directly from API data
       });
     }
-  }, [variantData, variantId]);
+  }, [variantData, variantId, formData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,7 +94,7 @@ export default function EditVariantPage() {
     }
 
     try {
-      // Update the variant via API
+      // Update the variant via API including imageUrl
       await updateVariantMutation.mutateAsync({
         id: variantId,
         data: {
@@ -100,17 +103,10 @@ export default function EditVariantPage() {
           sizeValue: formData.sizeValue
             ? Number.parseFloat(formData.sizeValue)
             : undefined,
-          barcode: formData.barcode.trim() || undefined,
+          barcode: formData.barcode?.trim() || undefined,
+          imageUrl: formData.imageUrl?.trim() || undefined, // Include imageUrl in the API update
         },
       });
-
-      // Save the image URL if provided (still using localStorage temporarily)
-      if (formData.imageUrl) {
-        const productImages = localStorage.getItem("productImages") || "{}";
-        const parsedImages = JSON.parse(productImages);
-        parsedImages[variantId] = formData.imageUrl.trim();
-        localStorage.setItem("productImages", JSON.stringify(parsedImages));
-      }
 
       router.push("/admin/products");
     } catch (error) {
@@ -165,7 +161,7 @@ export default function EditVariantPage() {
                 <Input
                   id="variantName"
                   placeholder="ဥပမာ - 1 ကီလို အိတ်၊ 500ml ဘူး"
-                  value={formData.variantName}
+                  value={formData.variantName || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, variantName: e.target.value })
                   }
@@ -180,7 +176,7 @@ export default function EditVariantPage() {
                     id="sizeValue"
                     type="number"
                     placeholder="ဥပမာ - 1, 500, 1000"
-                    value={formData.sizeValue}
+                    value={formData.sizeValue || ""}
                     onChange={(e) =>
                       setFormData({ ...formData, sizeValue: e.target.value })
                     }
@@ -191,7 +187,7 @@ export default function EditVariantPage() {
                 <div className="space-y-2">
                   <Label htmlFor="unit">ယူနစ်</Label>
                   <Select
-                    value={formData.unit}
+                    value={formData.unit || ""}
                     onValueChange={(value) =>
                       setFormData({ ...formData, unit: value })
                     }
@@ -215,7 +211,7 @@ export default function EditVariantPage() {
                 <Input
                   id="barcode"
                   placeholder="ဥပမာ - 8801234567890"
-                  value={formData.barcode}
+                  value={formData.barcode || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, barcode: e.target.value })
                   }
@@ -228,7 +224,7 @@ export default function EditVariantPage() {
                 <Input
                   id="imageUrl"
                   placeholder="https://example.com/image.jpg"
-                  value={formData.imageUrl}
+                  value={formData.imageUrl || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, imageUrl: e.target.value })
                   }

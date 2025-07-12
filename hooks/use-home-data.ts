@@ -1,29 +1,14 @@
 "use client";
 
-import {
-  useInfiniteBaseProducts,
-  useInfiniteVariants,
-  useInfinitePriceReports,
-} from "./use-api";
+import { useInfiniteBaseProducts } from "./use-api";
 import { useCallback, useMemo } from "react";
 import type { BaseProduct, ProductVariant, PriceReport } from "@/types/product";
 
 export function useHomeData(searchTerm: string = "") {
-  // Fetch base products with infinite query
+  // Fetch base products with infinite query (includes variants with latest price reports)
   const baseProductsQuery = useInfiniteBaseProducts({
     search: searchTerm || undefined,
     limit: 20,
-  });
-
-  // Fetch variants with infinite query
-  const variantsQuery = useInfiniteVariants({
-    search: searchTerm || undefined,
-    limit: 50,
-  });
-
-  // Fetch price reports with infinite query
-  const priceReportsQuery = useInfinitePriceReports({
-    limit: 100,
   });
 
   // Combine data from all pages
@@ -32,15 +17,19 @@ export function useHomeData(searchTerm: string = "") {
     return baseProductsQuery.data.pages.flatMap((page) => page.data);
   }, [baseProductsQuery.data]);
 
+  // Extract variants from base products
   const productVariants = useMemo(() => {
-    if (!variantsQuery.data) return [];
-    return variantsQuery.data.pages.flatMap((page) => page.data);
-  }, [variantsQuery.data]);
+    if (!baseProducts.length) return [];
+    return baseProducts.flatMap((product) => product.variants || []);
+  }, [baseProducts]);
 
+  // Extract price reports from variants
   const priceReports = useMemo(() => {
-    if (!priceReportsQuery.data) return [];
-    return priceReportsQuery.data.pages.flatMap((page) => page.data);
-  }, [priceReportsQuery.data]);
+    if (!productVariants.length) return [];
+    return productVariants
+      .map((variant) => variant.latestPriceReport)
+      .filter((report): report is PriceReport => report !== null);
+  }, [productVariants]);
 
   // Filter base products by search term
   const filteredBaseProducts = useMemo(() => {
@@ -55,15 +44,14 @@ export function useHomeData(searchTerm: string = "") {
         .includes(searchTerm.toLowerCase());
 
       // Check if any variant of this product has a matching barcode
-      const variantMatch = productVariants.some(
-        (variant) =>
-          variant.baseProductId === product.id &&
+      const variantMatch =
+        product.variants?.some((variant) =>
           variant.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+        ) || false;
 
       return nameMatch || categoryMatch || variantMatch;
     });
-  }, [baseProducts, productVariants, searchTerm]);
+  }, [baseProducts, searchTerm]);
 
   // Get the latest price report for a base product
   const getLatestPriceForBaseProduct = useCallback(
@@ -72,23 +60,24 @@ export function useHomeData(searchTerm: string = "") {
       const variants = productVariants.filter(
         (v) => v.baseProductId === baseProductId
       );
-      const variantIds = variants.map((v) => v.id);
 
-      // Find all price reports for these variants
-      const relevantPriceReports = priceReports.filter((report) =>
-        variantIds.includes(report.variantId)
-      );
+      // Find the latest price report among all variants
+      let latestReport: PriceReport | null = null;
+      let latestDate = new Date(0);
 
-      // Sort all relevant price reports by date to get the latest overall
-      const sortedReports = relevantPriceReports.sort(
-        (a, b) =>
-          new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()
-      );
+      for (const variant of variants) {
+        if (variant.latestPriceReport) {
+          const reportDate = new Date(variant.latestPriceReport.reportedAt);
+          if (reportDate > latestDate) {
+            latestDate = reportDate;
+            latestReport = variant.latestPriceReport;
+          }
+        }
+      }
 
-      // Return the latest report
-      return sortedReports[0] || null;
+      return latestReport;
     },
-    [priceReports, productVariants]
+    [productVariants]
   );
 
   // Get recent base products
@@ -102,16 +91,9 @@ export function useHomeData(searchTerm: string = "") {
   }, [baseProducts]);
 
   // Loading and error states
-  const isLoading =
-    baseProductsQuery.isLoading ||
-    variantsQuery.isLoading ||
-    priceReportsQuery.isLoading;
-  const isError =
-    baseProductsQuery.isError ||
-    variantsQuery.isError ||
-    priceReportsQuery.isError;
-  const error =
-    baseProductsQuery.error || variantsQuery.error || priceReportsQuery.error;
+  const isLoading = baseProductsQuery.isLoading;
+  const isError = baseProductsQuery.isError;
+  const error = baseProductsQuery.error;
 
   // Load more data
   const loadMoreBaseProducts = useCallback(() => {
@@ -122,21 +104,6 @@ export function useHomeData(searchTerm: string = "") {
       baseProductsQuery.fetchNextPage();
     }
   }, [baseProductsQuery]);
-
-  const loadMoreVariants = useCallback(() => {
-    if (variantsQuery.hasNextPage && !variantsQuery.isFetchingNextPage) {
-      variantsQuery.fetchNextPage();
-    }
-  }, [variantsQuery]);
-
-  const loadMorePriceReports = useCallback(() => {
-    if (
-      priceReportsQuery.hasNextPage &&
-      !priceReportsQuery.isFetchingNextPage
-    ) {
-      priceReportsQuery.fetchNextPage();
-    }
-  }, [priceReportsQuery]);
 
   return {
     baseProducts,
@@ -149,13 +116,7 @@ export function useHomeData(searchTerm: string = "") {
     isError,
     error,
     loadMoreBaseProducts,
-    loadMoreVariants,
-    loadMorePriceReports,
     isFetchingMoreBaseProducts: baseProductsQuery.isFetchingNextPage,
-    isFetchingMoreVariants: variantsQuery.isFetchingNextPage,
-    isFetchingMorePriceReports: priceReportsQuery.isFetchingNextPage,
     hasMoreBaseProducts: baseProductsQuery.hasNextPage,
-    hasMoreVariants: variantsQuery.hasNextPage,
-    hasMorePriceReports: priceReportsQuery.hasNextPage,
   };
 }

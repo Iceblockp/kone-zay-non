@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import BarcodeScanner from "@/components/barcode-scanner";
 import { useHomeData } from "@/hooks/use-home-data";
 import { LoadingSpinner } from "@/components/loading-spinner";
+import { useStatistics } from "@/hooks/use-statistics";
 
 export default function HomePage() {
   const [searchInputValue, setSearchInputValue] = useState("");
@@ -38,6 +39,9 @@ export default function HomePage() {
     isError,
     loadMoreBaseProducts,
   } = useHomeData(debouncedSearchTerm);
+
+  // Fetch statistics for accurate counts
+  const { data: statistics, isLoading: isLoadingStats } = useStatistics();
 
   const getCategoryColor = (category: string) => {
     const colors = {
@@ -122,7 +126,7 @@ export default function HomePage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
               <Input
-                placeholder="ဆန်၊ ဟင်းသီးဟင်းရွက်၊ လောင်စာဆီ စသည်တို့ကို ရှာပါ..."
+                placeholder="အချိုရည်၊ ကုန်ပစ္စည်း၊ ဘားကုဒ် စသည်တို့ကို ရှာပါ..."
                 value={searchInputValue}
                 onChange={(e) => setSearchInputValue(e.target.value)}
                 className="pl-10 sm:pl-12 pr-3 sm:pr-4 py-3 sm:py-4 text-sm sm:text-base border-2 border-gray-200 rounded-xl sm:rounded-2xl shadow-lg focus:border-primary-400 focus:ring-2 sm:focus:ring-4 focus:ring-primary-100 transition-all"
@@ -143,7 +147,11 @@ export default function HomePage() {
             <CardContent className="p-3 sm:p-4">
               <div className="text-center">
                 <p className="text-lg sm:text-2xl md:text-3xl font-bold text-primary-600">
-                  {baseProducts.length}
+                  {isLoadingStats ? (
+                    <span className="text-gray-400">...</span>
+                  ) : (
+                    statistics?.baseProductCount
+                  )}
                 </p>
                 <p className="text-xs sm:text-sm font-medium text-gray-600">
                   ကုန်ပစ္စည်းများ
@@ -156,7 +164,11 @@ export default function HomePage() {
             <CardContent className="p-3 sm:p-4">
               <div className="text-center">
                 <p className="text-lg sm:text-2xl md:text-3xl font-bold text-secondary-600">
-                  {productVariants.length}
+                  {isLoadingStats ? (
+                    <span className="text-gray-400">...</span>
+                  ) : (
+                    statistics?.variantCount
+                  )}
                 </p>
                 <p className="text-xs sm:text-sm font-medium text-gray-600">
                   အမျိုးအစားများ
@@ -169,10 +181,14 @@ export default function HomePage() {
             <CardContent className="p-3 sm:p-4">
               <div className="text-center">
                 <p className="text-lg sm:text-2xl md:text-3xl font-bold text-success-600">
-                  {new Set(priceReports.map((r) => r.location)).size}
+                  {isLoadingStats ? (
+                    <span className="text-gray-400">...</span>
+                  ) : (
+                    statistics?.priceReportCount
+                  )}
                 </p>
                 <p className="text-xs sm:text-sm font-medium text-gray-600">
-                  နေရာများ
+                  တင်ပြမှုများ
                 </p>
               </div>
             </CardContent>
@@ -267,79 +283,101 @@ export default function HomePage() {
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <CardContent className="p-4 sm:p-6">
-                        <div className="flex justify-between items-start gap-3 sm:gap-4">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-base sm:text-lg md:text-xl text-gray-800 mb-2 group-hover:text-primary-600 transition-colors truncate">
-                              {baseProduct.name}
-                            </h3>
-                            <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
-                              <Badge
-                                className={`${getCategoryColor(
-                                  baseProduct.category
-                                )} border font-medium text-xs sm:text-sm`}
-                              >
-                                {baseProduct.category}
-                              </Badge>
-                              <span className="text-xs sm:text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full flex items-center gap-1">
-                                <Package className="h-3 w-3" />
-                                {
-                                  productVariants.filter(
-                                    (v) => v.baseProductId === baseProduct.id
-                                  ).length
-                                }{" "}
-                                အမျိုးအစား
-                              </span>
+                        <div className=" flex flex-col sm:flex-row gap-4 ">
+                          {/* Add image display if available */}
+                          {baseProduct.imageUrl && (
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-md overflow-hidden flex-shrink-0 flex items-center justify-center">
+                              <img
+                                src={baseProduct.imageUrl}
+                                alt={baseProduct.name}
+                                className="max-w-full max-h-full object-contain"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = "/placeholder.jpg";
+                                }}
+                              />
                             </div>
-                            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500">
-                              <Users className="h-3 w-3" />
-                              <span>{baseProduct.createdBy} မှ ထည့်သွင်း</span>
+                          )}
+                          <div className="flex flex-1 justify-between items-start gap-3 sm:gap-4">
+                            <div
+                              className={`flex-1 min-w-0 ${
+                                baseProduct.imageUrl ? "" : "flex-1"
+                              }`}
+                            >
+                              <h3 className="font-bold text-base sm:text-lg md:text-xl text-gray-800 mb-2 group-hover:text-primary-600 transition-colors truncate">
+                                {baseProduct.name}
+                              </h3>
+                              <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
+                                <Badge
+                                  className={`${getCategoryColor(
+                                    baseProduct.category
+                                  )} border font-medium text-xs sm:text-sm`}
+                                >
+                                  {baseProduct.category}
+                                </Badge>
+                                <span className="text-xs sm:text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full flex items-center gap-1">
+                                  <Package className="h-3 w-3" />
+                                  {
+                                    productVariants.filter(
+                                      (v) => v.baseProductId === baseProduct.id
+                                    ).length
+                                  }{" "}
+                                  အမျိုးအစား
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500">
+                                <Users className="h-3 w-3" />
+                                <span>
+                                  {baseProduct.createdBy} မှ ထည့်သွင်း
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            {latestPriceReport ? (
-                              <div className="space-y-1 sm:space-y-2">
-                                <p className="text-lg sm:text-xl md:text-2xl font-bold bg-gradient-to-r from-primary-600 to-secondary-500 bg-clip-text text-transparent">
-                                  {latestPriceReport.price.toLocaleString()}{" "}
-                                  ကျပ်
-                                </p>
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-1 text-xs text-gray-500">
-                                    <MapPin className="h-3 w-3" />
-                                    <span className="truncate max-w-20 sm:max-w-24">
-                                      {latestPriceReport.location}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-xs text-gray-500">
-                                    <Clock className="h-3 w-3" />
-                                    <span>
-                                      {new Date(
-                                        latestPriceReport.reportedAt
-                                      ).toLocaleDateString()}
-                                    </span>
-                                  </div>
-                                  {latestVariant && (
+                            <div className="text-right flex-shrink-0">
+                              {latestPriceReport ? (
+                                <div className="space-y-1 sm:space-y-2">
+                                  <p className="text-lg sm:text-xl md:text-2xl font-bold bg-gradient-to-r from-primary-600 to-secondary-500 bg-clip-text text-transparent">
+                                    {latestPriceReport.price.toLocaleString()}{" "}
+                                    ကျပ်
+                                  </p>
+                                  <div className="space-y-1">
                                     <div className="flex items-center gap-1 text-xs text-gray-500">
-                                      <Package className="h-3 w-3" />
+                                      <MapPin className="h-3 w-3" />
                                       <span className="truncate max-w-20 sm:max-w-24">
-                                        {latestVariant.variantName}
+                                        {latestPriceReport.location}
                                       </span>
                                     </div>
-                                  )}
+                                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                                      <Clock className="h-3 w-3" />
+                                      <span>
+                                        {new Date(
+                                          latestPriceReport.reportedAt
+                                        ).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                    {latestVariant && (
+                                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                                        <Package className="h-3 w-3" />
+                                        <span className="truncate max-w-20 sm:max-w-24">
+                                          {latestVariant.variantName}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <div className="text-center">
-                                <p className="text-xs sm:text-sm text-gray-400 mb-1 sm:mb-2">
-                                  စျေးနှုန်း မရှိသေးပါ
-                                </p>
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs border-dashed"
-                                >
-                                  ပထမဆုံး သတင်းပို့ပါ
-                                </Badge>
-                              </div>
-                            )}
+                              ) : (
+                                <div className="text-center">
+                                  <p className="text-xs sm:text-sm text-gray-400 mb-1 sm:mb-2">
+                                    စျေးနှုန်း မရှိသေးပါ
+                                  </p>
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs border-dashed"
+                                  >
+                                    ပထမဆုံး သတင်းပို့ပါ
+                                  </Badge>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </CardContent>

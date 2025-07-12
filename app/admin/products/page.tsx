@@ -2,16 +2,23 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Edit, Trash2, Image, Search, Plus } from "lucide-react";
+import {
+  ArrowLeft,
+  Edit,
+  Trash2,
+  Image,
+  Search,
+  Plus,
+  ChevronRight,
+  ChevronDown,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { BaseProduct, ProductVariant, PriceReport } from "@/types/product";
+import type { BaseProduct, ProductVariant } from "@/types/product";
 import {
   useBaseProducts,
-  useVariants,
   useDeleteBaseProduct,
   useDeleteVariant,
 } from "@/hooks/use-api";
@@ -22,18 +29,19 @@ export default function AdminProductsPage() {
   const [filteredBaseProducts, setFilteredBaseProducts] = useState<
     BaseProduct[]
   >([]);
-  const [activeTab, setActiveTab] = useState("products");
+  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(
+    new Set()
+  );
 
   // Fetch data using API hooks
   const { data: baseProductsData, isLoading: isLoadingBaseProducts } =
     useBaseProducts();
-  const { data: variantsData, isLoading: isLoadingVariants } = useVariants();
+  // Removed the useVariants hook as we'll fetch variants per base product
   const deleteBaseProductMutation = useDeleteBaseProduct();
   const deleteVariantMutation = useDeleteVariant();
 
   // Extract the actual data arrays from the API responses
   const baseProducts = baseProductsData?.data || [];
-  const productVariants = variantsData?.data || [];
 
   useEffect(() => {
     if (searchTerm.trim() === "") {
@@ -48,38 +56,20 @@ export default function AdminProductsPage() {
           baseProduct.category.toLowerCase().includes(lowerCaseSearchTerm)
       );
 
-      // Find variants that match the barcode or variant name, then get their base products
-      const variantMatches = productVariants.filter(
-        (variant) =>
-          (variant.barcode &&
-            variant.barcode.toLowerCase().includes(lowerCaseSearchTerm)) ||
-          variant.variantName.toLowerCase().includes(lowerCaseSearchTerm)
-      );
-
-      const baseProductIdsFromVariants = new Set(
-        variantMatches.map((v) => v.baseProductId)
-      );
-
-      // Combine and deduplicate results
-      const combinedResults = [
-        ...baseProductMatches,
-        ...baseProducts.filter((bp) => baseProductIdsFromVariants.has(bp.id)),
-      ];
-
-      const uniqueResults = Array.from(
-        new Set(combinedResults.map((bp) => bp.id))
-      )
-        .map((id) => combinedResults.find((bp) => bp.id === id))
-        .filter(Boolean) as BaseProduct[];
-
-      setFilteredBaseProducts(uniqueResults);
+      setFilteredBaseProducts(baseProductMatches);
     }
-  }, [searchTerm, baseProducts, productVariants]);
+  }, [searchTerm, baseProducts]);
 
-  const getVariantsForBaseProduct = (baseProductId: string) => {
-    return productVariants.filter(
-      (variant) => variant.baseProductId === baseProductId
-    );
+  const toggleProductExpansion = (productId: string) => {
+    setExpandedProducts((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(productId)) {
+        newSet.delete(productId);
+      } else {
+        newSet.add(productId);
+      }
+      return newSet;
+    });
   };
 
   const handleDeleteBaseProduct = async (baseProductId: string) => {
@@ -136,7 +126,7 @@ export default function AdminProductsPage() {
   };
 
   // Show loading state while data is being fetched
-  if (isLoadingBaseProducts || isLoadingVariants) {
+  if (isLoadingBaseProducts) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
@@ -164,6 +154,15 @@ export default function AdminProductsPage() {
                 Admin - ကုန်ပစ္စည်းများ စီမံခန့်ခွဲမှု
               </h1>
             </div>
+            <Link href="/add-product">
+              <Button
+                size="sm"
+                className="bg-white text-gray-800 hover:bg-gray-100 shadow-lg gap-1 sm:gap-2 text-xs sm:text-sm px-3 sm:px-4"
+              >
+                <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                ကုန်ပစ္စည်း အသစ်ထည့်
+              </Button>
+            </Link>
           </div>
         </div>
       </header>
@@ -184,198 +183,78 @@ export default function AdminProductsPage() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <Tabs
-          defaultValue="products"
-          className="w-full"
-          onValueChange={setActiveTab}
-        >
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="products">ကုန်ပစ္စည်းများ</TabsTrigger>
-            <TabsTrigger value="variants">အမျိုးအစားများ</TabsTrigger>
-          </TabsList>
+        {/* Products List */}
+        <div className="space-y-4">
+          <h2 className="text-lg sm:text-xl font-bold">ကုန်ပစ္စည်းများ</h2>
 
-          <TabsContent value="products" className="space-y-4">
-            {filteredBaseProducts.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500">ကုန်ပစ္စည်းများ မရှိသေးပါ</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4">
-                {filteredBaseProducts.map((baseProduct) => (
-                  <Card
-                    key={baseProduct.id}
-                    className="overflow-hidden border border-gray-200 shadow-md hover:shadow-lg transition-shadow"
-                  >
-                    <CardContent className="p-0">
-                      <div className="p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <h3 className="text-lg font-semibold">
-                              {baseProduct.name}
-                            </h3>
-                            <Badge
-                              className={`${getCategoryColor(
-                                baseProduct.category
-                              )} mt-1`}
-                            >
-                              {baseProduct.category}
-                            </Badge>
-                          </div>
-                          <div className="flex gap-2">
-                            <Link
-                              href={`/admin/products/edit-base/${baseProduct.id}`}
-                            >
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 w-8 p-0"
+          {filteredBaseProducts.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">ကုန်ပစ္စည်းများ မရှိသေးပါ</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {filteredBaseProducts.map((baseProduct) => {
+                const isExpanded = expandedProducts.has(baseProduct.id);
+                return (
+                  <div key={baseProduct.id} className="space-y-2">
+                    <Card className="overflow-hidden border border-gray-200 shadow-md hover:shadow-lg transition-shadow">
+                      <CardContent className="p-0">
+                        <div className="p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex-1">
+                              <div
+                                className="flex items-center cursor-pointer"
+                                onClick={() =>
+                                  toggleProductExpansion(baseProduct.id)
+                                }
                               >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </Link>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                              onClick={() =>
-                                handleDeleteBaseProduct(baseProduct.id)
-                              }
-                              disabled={deleteBaseProductMutation.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div className="text-sm text-gray-500 mt-2">
-                          <p>
-                            အမျိုးအစား:{" "}
-                            {getVariantsForBaseProduct(baseProduct.id).length}{" "}
-                            ခု
-                          </p>
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <Link
-                            href={`/admin/products/add-image/${baseProduct.id}`}
-                          >
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 gap-1"
-                            >
-                              <Image className="h-3.5 w-3.5" />
-                              ပုံထည့်ရန်
-                            </Button>
-                          </Link>
-                          <Link href={`/base-product/${baseProduct.id}`}>
-                            <Button size="sm" variant="ghost" className="h-8">
-                              ကြည့်ရှုရန်
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="variants" className="space-y-4">
-            {productVariants.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500">အမျိုးအစားများ မရှိသေးပါ</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4">
-                {productVariants
-                  .filter((variant) => {
-                    if (searchTerm.trim() === "") return true;
-                    const lowerCaseSearchTerm = searchTerm.toLowerCase();
-                    const baseProduct = baseProducts.find(
-                      (bp) => bp.id === variant.baseProductId
-                    );
-                    return (
-                      variant.variantName
-                        .toLowerCase()
-                        .includes(lowerCaseSearchTerm) ||
-                      (variant.barcode &&
-                        variant.barcode
-                          .toLowerCase()
-                          .includes(lowerCaseSearchTerm)) ||
-                      (baseProduct &&
-                        baseProduct.name
-                          .toLowerCase()
-                          .includes(lowerCaseSearchTerm))
-                    );
-                  })
-                  .map((variant) => {
-                    const baseProduct = baseProducts.find(
-                      (bp) => bp.id === variant.baseProductId
-                    );
-                    return (
-                      <Card
-                        key={variant.id}
-                        className="overflow-hidden border border-gray-200 shadow-md hover:shadow-lg transition-shadow"
-                      >
-                        <CardContent className="p-0">
-                          <div className="p-4">
-                            <div className="flex justify-between items-start mb-2">
-                              <div>
-                                <h3 className="text-lg font-semibold">
-                                  {variant.variantName}
-                                </h3>
-                                <p className="text-sm text-gray-600">
-                                  {baseProduct?.name} - {variant.sizeValue}{" "}
-                                  {variant.unit}
-                                </p>
-                                {baseProduct && (
-                                  <Badge
-                                    className={`${getCategoryColor(
-                                      baseProduct.category
-                                    )} mt-1`}
-                                  >
-                                    {baseProduct.category}
-                                  </Badge>
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4 mr-2 text-gray-500" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 mr-2 text-gray-500" />
                                 )}
+                                <h3 className="text-lg font-semibold">
+                                  {baseProduct.name}
+                                </h3>
                               </div>
-                              <div className="flex gap-2">
-                                <Link
-                                  href={`/admin/products/edit-variant/${variant.id}`}
-                                >
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-8 w-8 p-0"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                </Link>
+                              <Badge
+                                className={`${getCategoryColor(
+                                  baseProduct.category
+                                )} mt-1 ml-6`}
+                              >
+                                {baseProduct.category}
+                              </Badge>
+                            </div>
+                            <div className="flex gap-2">
+                              <Link
+                                href={`/admin/products/edit-base/${baseProduct.id}`}
+                              >
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                  onClick={() =>
-                                    handleDeleteVariant(variant.id)
-                                  }
-                                  disabled={deleteVariantMutation.isPending}
+                                  className="h-8 w-8 p-0"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Edit className="h-4 w-4" />
                                 </Button>
-                              </div>
+                              </Link>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                onClick={() =>
+                                  handleDeleteBaseProduct(baseProduct.id)
+                                }
+                                disabled={deleteBaseProductMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
+                          </div>
 
-                            {variant.barcode && (
-                              <div className="text-sm text-gray-500 mt-2">
-                                <p>Barcode: {variant.barcode}</p>
-                              </div>
-                            )}
-
-                            <div className="mt-3 flex flex-wrap gap-2">
+                          <div className="ml-6 text-sm text-gray-500 mt-2 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
                               <Link
-                                href={`/admin/products/add-image/${variant.baseProductId}?variantId=${variant.id}`}
+                                href={`/admin/products/add-image/${baseProduct.id}`}
                               >
                                 <Button
                                   size="sm"
@@ -386,7 +265,7 @@ export default function AdminProductsPage() {
                                   ပုံထည့်ရန်
                                 </Button>
                               </Link>
-                              <Link href={`/variant/${variant.id}`}>
+                              <Link href={`/base-product/${baseProduct.id}`}>
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -396,15 +275,120 @@ export default function AdminProductsPage() {
                                 </Button>
                               </Link>
                             </div>
+                            <Link
+                              href={`/add-product?baseProductId=${baseProduct.id}`}
+                            >
+                              <Button
+                                size="sm"
+                                className="h-8 gap-1 bg-primary-100 text-primary-700 hover:bg-primary-200"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                                အမျိုးအစား အသစ်ထည့်
+                              </Button>
+                            </Link>
                           </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Variants for this base product */}
+                    {isExpanded && (
+                      <div className="pl-6 space-y-2">
+                        {baseProduct.variants &&
+                        baseProduct.variants.length > 0 ? (
+                          baseProduct.variants.map(
+                            (variant: ProductVariant) => (
+                              <Card
+                                key={variant.id}
+                                className="overflow-hidden border border-gray-200 shadow-sm hover:shadow transition-shadow"
+                              >
+                                <CardContent className="p-0">
+                                  <div className="p-4">
+                                    <div className="flex justify-between items-start mb-2">
+                                      <div>
+                                        <h3 className="text-base font-medium">
+                                          {variant.variantName}
+                                        </h3>
+                                        <p className="text-sm text-gray-600">
+                                          {variant.sizeValue} {variant.unit}
+                                        </p>
+                                        {variant.barcode && (
+                                          <p className="text-xs text-gray-500 mt-1">
+                                            Barcode: {variant.barcode}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <Link
+                                          href={`/admin/products/edit-variant/${variant.id}`}
+                                        >
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-7 w-7 p-0"
+                                          >
+                                            <Edit className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </Link>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                          onClick={() =>
+                                            handleDeleteVariant(variant.id)
+                                          }
+                                          disabled={
+                                            deleteVariantMutation.isPending
+                                          }
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
+                                    </div>
+
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      <Link
+                                        href={`/admin/products/add-image/${variant.baseProductId}?variantId=${variant.id}`}
+                                      >
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-7 gap-1 text-xs"
+                                        >
+                                          <Image className="h-3 w-3" />
+                                          ပုံထည့်ရန်
+                                        </Button>
+                                      </Link>
+                                      <Link href={`/variant/${variant.id}`}>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-7 text-xs"
+                                        >
+                                          ကြည့်ရှုရန်
+                                        </Button>
+                                      </Link>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            )
+                          )
+                        ) : (
+                          <div className="text-center py-4 bg-gray-50 rounded-lg">
+                            <p className="text-gray-500 text-sm">
+                              အမျိုးအစားများ မရှိသေးပါ
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );

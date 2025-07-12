@@ -9,7 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { BaseProduct, ProductVariant } from "@/types/product";
-import { useBaseProduct, useVariant } from "@/hooks/use-api";
+import {
+  useBaseProduct,
+  useVariant,
+  useUpdateBaseProduct,
+  useUpdateVariant,
+} from "@/hooks/use-api";
 import { LoadingSpinner } from "@/components/loading-spinner";
 
 export default function AddImagePage() {
@@ -25,25 +30,25 @@ export default function AddImagePage() {
     variantId || ""
   );
 
+  const updateBaseProductMutation = useUpdateBaseProduct();
+  const updateVariantMutation = useUpdateVariant();
+
   const [imageUrl, setImageUrl] = useState("");
   const [currentImageUrl, setCurrentImageUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // Check if there's an imageUrl in localStorage
-    const productImages = localStorage.getItem("productImages");
-
-    if (productImages) {
-      const parsedImages = JSON.parse(productImages);
-      const targetId = variantId || baseProductId;
-      if (parsedImages[targetId]) {
-        setImageUrl(parsedImages[targetId]);
-        setCurrentImageUrl(parsedImages[targetId]);
-      }
+    // Set current image URL from API data instead of localStorage
+    if (variantId && variantData?.imageUrl) {
+      setImageUrl(variantData.imageUrl);
+      setCurrentImageUrl(variantData.imageUrl);
+    } else if (baseProductData?.imageUrl) {
+      setImageUrl(baseProductData.imageUrl);
+      setCurrentImageUrl(baseProductData.imageUrl);
     }
-  }, [baseProductId, variantId]);
+  }, [baseProductData, variantData, baseProductId, variantId]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
@@ -54,12 +59,18 @@ export default function AddImagePage() {
     }
 
     try {
-      // Save the image URL (still using localStorage temporarily until API supports images)
-      const productImages = localStorage.getItem("productImages") || "{}";
-      const parsedImages = JSON.parse(productImages);
-      const targetId = variantId || baseProductId;
-      parsedImages[targetId] = imageUrl.trim();
-      localStorage.setItem("productImages", JSON.stringify(parsedImages));
+      // Update the imageUrl in the database instead of localStorage
+      if (variantId) {
+        await updateVariantMutation.mutateAsync({
+          id: variantId,
+          data: { imageUrl: imageUrl.trim() },
+        });
+      } else {
+        await updateBaseProductMutation.mutateAsync({
+          id: baseProductId,
+          data: { imageUrl: imageUrl.trim() },
+        });
+      }
 
       router.push("/admin/products");
     } catch (error) {

@@ -3,6 +3,7 @@
 import type React from "react";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation"; // Import useSearchParams
+import { useDebounce } from "use-debounce"; // Add this import
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -55,6 +56,9 @@ export default function AddProductPage() {
     category: "",
     createdBy: "",
   });
+
+  const [searchInputValue, setSearchInputValue] = useState("");
+  const [debouncedSearchTerm] = useDebounce(searchInputValue, 500); // 500ms debounce delay
 
   // Form data for adding a new variant
   const [newVariantFormData, setNewVariantFormData] = useState({
@@ -176,34 +180,61 @@ export default function AddProductPage() {
     }
   }, [baseProductFromUrl, selectedBaseProduct]);
 
-  // Handle search for existing base products when adding a variant
-  useEffect(() => {
-    if (
-      mode === "addVariant" &&
-      !selectedBaseProduct &&
-      newBaseProductFormData.name.trim().length > 2
-    ) {
-      // Get all base products from all pages
-      const allBaseProducts =
-        baseProductsData?.pages.flatMap((page) => page.data) || [];
+  // Add this effect for checking duplicates when adding a new base product
 
-      const results = allBaseProducts.filter((bp) =>
-        bp.name
-          .toLowerCase()
-          .includes(newBaseProductFormData.name.toLowerCase())
-      );
-      setBaseProductSearchResults(results);
-      setShowBaseProductDuplicateWarning(results.length > 0);
-    } else {
+  // Handle search for both base products and variants
+  useEffect(() => {
+    if (debouncedSearchTerm.trim().length <= 2) {
       setBaseProductSearchResults([]);
       setShowBaseProductDuplicateWarning(false);
+      return;
     }
-  }, [
-    newBaseProductFormData.name,
-    baseProductsData,
-    mode,
-    selectedBaseProduct,
-  ]);
+
+    const checkForDuplicates = async () => {
+      try {
+        const params = new URLSearchParams();
+        params.append("search", debouncedSearchTerm);
+        params.append("limit", "3");
+
+        const response = await fetch(`/api/base-products?${params.toString()}`);
+        if (!response.ok) throw new Error("Search failed");
+
+        const data = await response.json();
+        setBaseProductSearchResults(data.data);
+        setShowBaseProductDuplicateWarning(data.data.length > 0);
+      } catch (error) {
+        console.error("Search error:", error);
+        setBaseProductSearchResults([]);
+        setShowBaseProductDuplicateWarning(false);
+      }
+    };
+
+    const fetchSearchResults = async () => {
+      try {
+        const params = new URLSearchParams();
+        params.append("search", debouncedSearchTerm);
+        params.append("limit", "5");
+
+        const response = await fetch(`/api/base-products?${params.toString()}`);
+        if (!response.ok) throw new Error("Search failed");
+
+        const data = await response.json();
+        setBaseProductSearchResults(data.data);
+        setShowBaseProductDuplicateWarning(data.data.length > 0);
+      } catch (error) {
+        console.error("Search error:", error);
+        setBaseProductSearchResults([]);
+        setShowBaseProductDuplicateWarning(false);
+      }
+    };
+
+    // Determine which search to perform based on mode and selection state
+    if (mode === "addBaseProduct") {
+      checkForDuplicates();
+    } else if (mode === "addVariant" && !selectedBaseProduct) {
+      fetchSearchResults();
+    }
+  }, [debouncedSearchTerm, mode, selectedBaseProduct]);
 
   const handleAddBaseProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,14 +257,6 @@ export default function AddProductPage() {
         category: newBaseProductFormData.category,
         createdBy: newBaseProductFormData.createdBy.trim(),
       });
-
-      // Automatically create a default variant for the new base product
-      // await createVariantMutation.mutateAsync({
-      //   baseProductId: newBaseProduct.id,
-      //   variantName: `${newBaseProduct.name} (Default)`,
-      //   unit: "ခု",
-      //   createdBy: newBaseProductFormData.createdBy.trim(),
-      // });
 
       router.push(`/base-product/${newBaseProduct.id}`); // Navigate to the new base product's detail page
     } catch (error) {
@@ -391,12 +414,13 @@ export default function AddProductPage() {
                       id="baseProductName"
                       placeholder="ဥပမာ - ရွှေဘိုဆန်၊ ကြက်သွန်နီ၊ ထန်းလျက်ဆီ"
                       value={newBaseProductFormData.name}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setNewBaseProductFormData({
                           ...newBaseProductFormData,
                           name: e.target.value,
-                        })
-                      }
+                        });
+                        setSearchInputValue(e.target.value);
+                      }}
                       className="pl-10 sm:pl-12 py-2 sm:py-3 text-sm sm:text-base border-2 rounded-xl focus:border-primary-400 focus:ring-2 sm:focus:ring-4 focus:ring-primary-100"
                     />
                   </div>
@@ -574,13 +598,8 @@ export default function AddProductPage() {
                         <Input
                           id="searchBaseProduct"
                           placeholder="ရှိပြီးသား ကုန်ပစ္စည်း ရှာပါ..."
-                          value={newBaseProductFormData.name} // Re-using this for search input
-                          onChange={(e) =>
-                            setNewBaseProductFormData({
-                              ...newBaseProductFormData,
-                              name: e.target.value,
-                            })
-                          }
+                          value={searchInputValue}
+                          onChange={(e) => setSearchInputValue(e.target.value)}
                           className="pl-10 sm:pl-12 py-2 sm:py-3 text-sm sm:text-base border-2 rounded-xl focus:border-primary-400 focus:ring-2 sm:focus:ring-4 focus:ring-primary-100"
                         />
                       </div>

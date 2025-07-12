@@ -15,7 +15,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { BaseProduct, ProductVariant, PriceReport } from "@/types/product";
-import { useBaseProduct, useVariants, usePriceReports } from "@/hooks/use-api";
+import {
+  useBaseProduct,
+  useVariants,
+  // Remove this import
+  // useLatestPriceReports,
+} from "@/hooks/use-api";
 
 export default function BaseProductPage() {
   const params = useParams();
@@ -28,8 +33,32 @@ export default function BaseProductPage() {
   const { data: variantsData, isLoading: isLoadingVariants } = useVariants({
     baseProductId,
   });
-  const { data: priceReportsData, isLoading: isLoadingPriceReports } =
-    usePriceReports();
+  // Replace the current price reports fetching
+  // const { data: priceReportsData, isLoading: isLoadingPriceReports } =
+  //   useLatestPriceReports({ baseProductId });
+
+  // Update the useEffect
+  // useEffect(() => {
+  //   if (baseProductData) {
+  //     setBaseProduct(baseProductData);
+  //   }
+
+  //   if (variantsData) {
+  //     setProductVariants(variantsData.data || []);
+  //   }
+
+  //   if (priceReportsData) {
+  //     // Now priceReportsData.data contains only the latest price report for each variant
+  //     setPriceReports(priceReportsData.data || []);
+  //   }
+  // }, [baseProductData, variantsData, priceReportsData]);
+
+  // Replace the getLatestPriceForVariant function with this simpler version
+  // const getLatestPriceForVariant = (variantId: string) => {
+  //   return (
+  //     priceReports.find((report) => report.variantId === variantId) || null
+  //   );
+  // };
 
   // ဒေတာများကို state တွင် သိမ်းဆည်းခြင်း
   const [baseProduct, setBaseProduct] = useState<BaseProduct | null>(null);
@@ -44,33 +73,43 @@ export default function BaseProductPage() {
 
     if (variantsData) {
       setProductVariants(variantsData.data || []);
-    }
 
-    if (priceReportsData) {
-      setPriceReports(priceReportsData.data || []);
+      // Extract latest price reports from variants
+      const latestReports = variantsData.data
+        ?.map((variant) => variant.priceReports?.[0])
+        .filter((report) => report) as PriceReport[];
+
+      setPriceReports(latestReports || []);
     }
-  }, [baseProductData, variantsData, priceReportsData]);
+  }, [baseProductData, variantsData]);
+
+  // Replace the getLatestPriceForVariant function with this simpler version
+  const getLatestPriceForVariant = (variantId: string) => {
+    return (
+      priceReports.find((report) => report.variantId === variantId) || null
+    );
+  };
 
   // ပုံရိပ်ရယူခြင်း function ကို localStorage မှ API သို့ ပြောင်းလဲရန် လိုအပ်ပါသည်
   // ယာယီအားဖြင့် localStorage ကို ဆက်လက်အသုံးပြုထားပါသည်
+  // Update the getProductImage function to use API data instead of localStorage
   const getProductImage = (id: string) => {
-    const productImages = localStorage.getItem("productImages");
-    if (productImages) {
-      const parsedImages = JSON.parse(productImages);
-      return parsedImages[id] || null;
+    // For base product, use its imageUrl directly
+    if (id === baseProductId && baseProduct) {
+      return baseProduct.imageUrl || null;
     }
     return null;
   };
 
-  const getLatestPriceForVariant = (variantId: string) => {
-    const variantReports = priceReports
-      .filter((report) => report.variantId === variantId)
-      .sort(
-        (a, b) =>
-          new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()
-      );
-    return variantReports[0] || null;
-  };
+  // const getLatestPriceForVariant = (variantId: string) => {
+  //   const variantReports = priceReports
+  //     .filter((report) => report.variantId === variantId)
+  //     .sort(
+  //       (a, b) =>
+  //         new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()
+  //     );
+  //   return variantReports[0] || null;
+  // };
 
   const getCategoryColor = (category: string) => {
     const colors = {
@@ -94,8 +133,8 @@ export default function BaseProductPage() {
     );
   };
 
-  // Loading state ကို စစ်ဆေးခြင်း
-  if (isLoadingBaseProduct || isLoadingVariants || isLoadingPriceReports) {
+  // Loading state ကို စစ်ဆေးခြင်း - remove priceReports loading check
+  if (isLoadingBaseProduct || isLoadingVariants) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="glass-card max-w-md w-full">
@@ -191,7 +230,7 @@ export default function BaseProductPage() {
         <div className="container mx-auto px-3 py-2 sm:px-4 sm:py-3">
           <div className="aspect-video max-h-64 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
             <img
-              src={getProductImage(baseProductId)}
+              src={getProductImage(baseProductId) || undefined}
               alt={baseProduct.name}
               className="max-w-full max-h-full object-contain"
               onError={(e) => {
@@ -278,69 +317,85 @@ export default function BaseProductPage() {
                       style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <CardContent className="p-4 sm:p-6">
-                        <div className="flex justify-between items-start gap-3 sm:gap-4">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-base sm:text-lg md:text-xl text-gray-800 mb-2 group-hover:text-primary-600 transition-colors truncate">
-                              {variant.variantName}
-                            </h3>
-                            <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
-                              <Badge
-                                className={`${getCategoryColor(
-                                  baseProduct.category
-                                )} border font-medium text-xs sm:text-sm`}
-                              >
-                                {baseProduct.category}
-                              </Badge>
-                              <span className="text-xs sm:text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                                {variant.unit}
-                                {variant.sizeValue
-                                  ? ` (${variant.sizeValue})`
-                                  : ""}
-                              </span>
+                        <div className=" flex flex-col sm:flex-row gap-4 ">
+                          {/* Add image display if available */}
+                          {variant.imageUrl && (
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-md overflow-hidden flex-shrink-0 flex items-center justify-center">
+                              <img
+                                src={variant.imageUrl}
+                                alt={variant.variantName}
+                                className="max-w-full max-h-full object-contain"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = "/placeholder.jpg";
+                                }}
+                              />
                             </div>
-                            {variant.barcode && (
-                              <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500">
-                                <Package className="h-3 w-3" />
-                                <span>ဘားကုဒ်: {variant.barcode}</span>
+                          )}
+                          <div className="flex flex-1 justify-between items-start gap-3 sm:gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-base sm:text-lg md:text-xl text-gray-800 mb-2 group-hover:text-primary-600 transition-colors truncate">
+                                {variant.variantName}
+                              </h3>
+                              <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
+                                <Badge
+                                  className={`${getCategoryColor(
+                                    baseProduct.category
+                                  )} border font-medium text-xs sm:text-sm`}
+                                >
+                                  {baseProduct.category}
+                                </Badge>
+                                <span className="text-xs sm:text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                                  {variant.unit}
+                                  {variant.sizeValue
+                                    ? ` (${variant.sizeValue})`
+                                    : ""}
+                                </span>
                               </div>
-                            )}
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            {latestPrice ? (
-                              <div className="space-y-1 sm:space-y-2">
-                                <p className="text-lg sm:text-xl md:text-2xl font-bold bg-gradient-to-r from-primary-600 to-secondary-500 bg-clip-text text-transparent">
-                                  {latestPrice.price.toLocaleString()} ကျပ်
-                                </p>
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-1 text-xs text-gray-500">
-                                    <MapPin className="h-3 w-3" />
-                                    <span className="truncate max-w-20 sm:max-w-24">
-                                      {latestPrice.location}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-xs text-gray-500">
-                                    <Clock className="h-3 w-3" />
-                                    <span>
-                                      {new Date(
-                                        latestPrice.reportedAt
-                                      ).toLocaleDateString()}
-                                    </span>
+                              {variant.barcode && (
+                                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500">
+                                  <Package className="h-3 w-3" />
+                                  <span>ဘားကုဒ်: {variant.barcode}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              {latestPrice ? (
+                                <div className="space-y-1 sm:space-y-2">
+                                  <p className="text-lg sm:text-xl md:text-2xl font-bold bg-gradient-to-r from-primary-600 to-secondary-500 bg-clip-text text-transparent">
+                                    {latestPrice.price.toLocaleString()} ကျပ်
+                                  </p>
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                                      <MapPin className="h-3 w-3" />
+                                      <span className="truncate max-w-20 sm:max-w-24">
+                                        {latestPrice.location}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                                      <Clock className="h-3 w-3" />
+                                      <span>
+                                        {new Date(
+                                          latestPrice.reportedAt
+                                        ).toLocaleDateString()}
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <div className="text-center">
-                                <p className="text-xs sm:text-sm text-gray-400 mb-1 sm:mb-2">
-                                  စျေးနှုန်း မရှိသေးပါ
-                                </p>
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs border-dashed"
-                                >
-                                  ပထမဆုံး သတင်းပို့ပါ
-                                </Badge>
-                              </div>
-                            )}
+                              ) : (
+                                <div className="text-center">
+                                  <p className="text-xs sm:text-sm text-gray-400 mb-1 sm:mb-2">
+                                    စျေးနှုန်း မရှိသေးပါ
+                                  </p>
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs border-dashed"
+                                  >
+                                    ပထမဆုံး သတင်းပို့ပါ
+                                  </Badge>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </CardContent>

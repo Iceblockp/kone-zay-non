@@ -5,6 +5,8 @@ export interface BaseProduct {
   category: string; // e.g., "အချိုရည်နှင့် ဖျော်ရည်များ"
   createdBy: string;
   createdAt: string;
+  imageUrl?: string;
+  variants: ProductVariant[];
   // Note: imageUrl is stored separately in localStorage under "productImages"
 }
 
@@ -15,6 +17,9 @@ export interface ProductVariant {
   unit: string; // e.g., "မီလီလီတာ", "ကီလို"
   sizeValue?: number; // e.g., 300, 5 (for 5kg)
   barcode?: string; // Unique barcode for this variant
+  imageUrl?: string; // URL to the image of this variant
+  latestPriceReport?: PriceReport;
+  priceReports?: PriceReport[];
   // Note: imageUrl is stored separately in localStorage under "productImages"
 }
 

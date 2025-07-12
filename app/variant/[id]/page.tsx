@@ -177,13 +177,15 @@ export default function VariantPage() {
   };
 
   // Keep using localStorage for images temporarily until we have an API endpoint for images
+  // Update the getProductImage function to use API data instead of localStorage
   const getProductImage = (id: string) => {
-    const productImages = localStorage.getItem("productImages");
-    if (productImages) {
-      const parsedImages = JSON.parse(productImages);
-      return (
-        parsedImages[id] || parsedImages[productVariant.baseProductId] || null
-      );
+    // For variant, use its imageUrl directly
+    if (id === variantId && productVariant) {
+      return productVariant.imageUrl || null;
+    }
+    // If variant doesn't have an image, try to use the base product's image as fallback
+    if (baseProduct) {
+      return baseProduct.imageUrl || null;
     }
     return null;
   };
@@ -241,7 +243,7 @@ export default function VariantPage() {
         <div className="container mx-auto px-3 py-2 sm:px-4 sm:py-3">
           <div className="aspect-video max-h-64 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
             <img
-              src={getProductImage(variantId)}
+              src={getProductImage(variantId) || undefined}
               alt={productVariant.variantName}
               className="max-w-full max-h-full object-contain"
               onError={(e) => {

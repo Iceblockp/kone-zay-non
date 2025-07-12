@@ -27,11 +27,12 @@ export default function EditBaseProductPage() {
   const { data: baseProductData, isLoading } = useBaseProduct(baseProductId);
   const updateBaseProductMutation = useUpdateBaseProduct();
 
-  const [formData, setFormData] = useState({
-    name: "",
-    category: "",
-    imageUrl: "", // Note: We'll still use localStorage for images temporarily
-  });
+  // Initial state ကို null အဖြစ် သတ်မှတ်ပါ
+  const [formData, setFormData] = useState<{
+    name: string | null;
+    category: string | null;
+    imageUrl: string | null;
+  }>({ name: null, category: null, imageUrl: null });
 
   const categories = [
     {
@@ -90,27 +91,24 @@ export default function EditBaseProductPage() {
     { value: "အခြားများ", icon: "📦", color: "from-indigo-400 to-blue-500" },
   ];
 
+  console.log("sss", baseProductData);
+  console.log("ssss", formData);
+
   useEffect(() => {
-    if (baseProductData) {
-      const baseProduct = baseProductData;
-
-      // Check if there's an imageUrl in localStorage (temporary solution until API supports images)
-      const productImages = localStorage.getItem("productImages");
-      let imageUrl = "";
-      if (productImages) {
-        const parsedImages = JSON.parse(productImages);
-        if (parsedImages[baseProductId]) {
-          imageUrl = parsedImages[baseProductId];
-        }
-      }
-
+    // baseProductData ရှိတဲ့အခါမှ formData ကို update လုပ်ပါ
+    if (
+      baseProductData &&
+      (formData.name === null ||
+        formData.category === null ||
+        formData.imageUrl === null)
+    ) {
       setFormData({
-        name: baseProduct.name,
-        category: baseProduct.category,
-        imageUrl: imageUrl,
+        name: baseProductData.name,
+        category: baseProductData.category,
+        imageUrl: baseProductData.imageUrl || "",
       });
     }
-  }, [baseProductData, baseProductId]);
+  }, [baseProductData, formData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,22 +119,15 @@ export default function EditBaseProductPage() {
     }
 
     try {
-      // Update the base product via API
+      // Update the base product via API including the imageUrl
       await updateBaseProductMutation.mutateAsync({
         id: baseProductId,
         data: {
           name: formData.name.trim(),
           category: formData.category,
+          imageUrl: formData.imageUrl?.trim() || null,
         },
       });
-
-      // Save the image URL if provided (still using localStorage temporarily)
-      if (formData.imageUrl) {
-        const productImages = localStorage.getItem("productImages") || "{}";
-        const parsedImages = JSON.parse(productImages);
-        parsedImages[baseProductId] = formData.imageUrl.trim();
-        localStorage.setItem("productImages", JSON.stringify(parsedImages));
-      }
 
       router.push("/admin/products");
     } catch (error) {
@@ -189,7 +180,7 @@ export default function EditBaseProductPage() {
                 <Input
                   id="name"
                   placeholder="ဥပမာ - ဆန်၊ ဆီ၊ ဆား"
-                  value={formData.name}
+                  value={formData.name || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
@@ -200,7 +191,7 @@ export default function EditBaseProductPage() {
               <div className="space-y-2">
                 <Label htmlFor="category">အမျိုးအစား</Label>
                 <Select
-                  value={formData.category}
+                  value={formData.category || ""}
                   onValueChange={(value) =>
                     setFormData({ ...formData, category: value })
                   }
@@ -226,7 +217,7 @@ export default function EditBaseProductPage() {
                 <Input
                   id="imageUrl"
                   placeholder="https://example.com/image.jpg"
-                  value={formData.imageUrl}
+                  value={formData.imageUrl || undefined}
                   onChange={(e) =>
                     setFormData({ ...formData, imageUrl: e.target.value })
                   }
