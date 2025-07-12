@@ -113,7 +113,7 @@ export default function AdminProductsPage() {
       "နို့ထွက်ပစ္စည်းနှင့် ကြက်ဥများ":
         "bg-stone-100 text-stone-800 border-stone-200",
       အေးခဲအစားအစာများ: "bg-sky-100 text-sky-800 border-sky-200",
-      ကိုယ်ပိုင်စောင့်ရှောက်မှု: "bg-teal-100 text-teal-800 border-teal-200",
+      အသုံးအဆောင်များ: "bg-teal-100 text-teal-800 border-teal-200",
       ကလေးပစ္စည်းများ: "bg-purple-100 text-purple-800 border-purple-200",
       အိမ်သုံးပစ္စည်းများ: "bg-blue-100 text-blue-800 border-blue-200", // Re-using blue for household
       လောင်စာဆီ: "bg-gray-100 text-gray-800 border-gray-200",

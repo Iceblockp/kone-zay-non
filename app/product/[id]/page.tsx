@@ -1,62 +1,78 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
-import Link from "next/link"
-import { ArrowLeft, Plus, MapPin, Clock, User, TrendingUp, BarChart3, Target } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { XAxis, YAxis, ResponsiveContainer, Area, AreaChart } from "recharts"
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Plus,
+  MapPin,
+  Clock,
+  User,
+  TrendingUp,
+  BarChart3,
+  Target,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import { XAxis, YAxis, ResponsiveContainer, Area, AreaChart } from "recharts";
 
 interface Product {
-  id: string
-  name: string
-  category: string
-  unit: string
-  createdBy: string
-  createdAt: string
-  barcode?: string // Add this line
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  createdBy: string;
+  createdAt: string;
+  barcode?: string; // Add this line
 }
 
 interface PriceReport {
-  id: string
-  productId: string
-  price: number
-  location: string
-  reportedBy: string
-  reportedAt: string
-  note?: string
+  id: string;
+  productId: string;
+  price: number;
+  location: string;
+  reportedBy: string;
+  reportedAt: string;
+  note?: string;
 }
 
 export default function ProductPage() {
-  const params = useParams()
-  const productId = params.id as string
+  const params = useParams();
+  const productId = params.id as string;
 
-  const [product, setProduct] = useState<Product | null>(null)
-  const [priceReports, setPriceReports] = useState<PriceReport[]>([])
-  const [productPrices, setProductPrices] = useState<PriceReport[]>([])
+  const [product, setProduct] = useState<Product | null>(null);
+  const [priceReports, setPriceReports] = useState<PriceReport[]>([]);
+  const [productPrices, setProductPrices] = useState<PriceReport[]>([]);
 
   useEffect(() => {
-    const savedProducts = localStorage.getItem("products")
-    const savedPriceReports = localStorage.getItem("priceReports")
+    const savedProducts = localStorage.getItem("products");
+    const savedPriceReports = localStorage.getItem("priceReports");
 
     if (savedProducts) {
-      const products: Product[] = JSON.parse(savedProducts)
-      const foundProduct = products.find((p) => p.id === productId)
-      setProduct(foundProduct || null)
+      const products: Product[] = JSON.parse(savedProducts);
+      const foundProduct = products.find((p) => p.id === productId);
+      setProduct(foundProduct || null);
     }
 
     if (savedPriceReports) {
-      const reports: PriceReport[] = JSON.parse(savedPriceReports)
-      setPriceReports(reports)
+      const reports: PriceReport[] = JSON.parse(savedPriceReports);
+      setPriceReports(reports);
       const productReports = reports
         .filter((report) => report.productId === productId)
-        .sort((a, b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime())
-      setProductPrices(productReports)
+        .sort(
+          (a, b) =>
+            new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()
+        );
+      setProductPrices(productReports);
     }
-  }, [productId])
+  }, [productId]);
 
   if (!product) {
     return (
@@ -66,8 +82,12 @@ export default function ProductPage() {
             <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 bg-gradient-to-br from-red-100 to-red-200 rounded-full flex items-center justify-center">
               <Target className="h-6 w-6 sm:h-8 sm:w-8 text-red-500" />
             </div>
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">ကုန်ပစ္စည်း မတွေ့ပါ</h3>
-            <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">သင်ရှာနေသော ကုန်ပစ္စည်း မရှိပါ။</p>
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">
+              ကုန်ပစ္စည်း မတွေ့ပါ
+            </h3>
+            <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
+              သင်ရှာနေသော ကုန်ပစ္စည်း မရှိပါ။
+            </p>
             <Link href="/">
               <Button className="bg-gradient-to-r from-primary-500 to-secondary-500 text-sm sm:text-base">
                 မူလစာမျက်နှာ
@@ -76,26 +96,38 @@ export default function ProductPage() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   const chartData = productPrices
     .slice(0, 10)
     .reverse()
     .map((report, index) => ({
-      date: new Date(report.reportedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      date: new Date(report.reportedAt).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      }),
       price: report.price,
       location: report.location,
-    }))
+    }));
 
   const averagePrice =
     productPrices.length > 0
-      ? Math.round(productPrices.reduce((sum, report) => sum + report.price, 0) / productPrices.length)
-      : 0
+      ? Math.round(
+          productPrices.reduce((sum, report) => sum + report.price, 0) /
+            productPrices.length
+        )
+      : 0;
 
-  const latestPrice = productPrices[0]
-  const minPrice = productPrices.length > 0 ? Math.min(...productPrices.map((p) => p.price)) : 0
-  const maxPrice = productPrices.length > 0 ? Math.max(...productPrices.map((p) => p.price)) : 0
+  const latestPrice = productPrices[0];
+  const minPrice =
+    productPrices.length > 0
+      ? Math.min(...productPrices.map((p) => p.price))
+      : 0;
+  const maxPrice =
+    productPrices.length > 0
+      ? Math.max(...productPrices.map((p) => p.price))
+      : 0;
 
   const getCategoryColor = (category: string) => {
     const colors = {
@@ -108,33 +140,47 @@ export default function ProductPage() {
       "မုန့်နှင့် သရေစာများ": "from-pink-300 to-rose-400",
       "နို့ထွက်ပစ္စည်းနှင့် ကြက်ဥများ": "from-stone-300 to-yellow-300",
       အေးခဲအစားအစာများ: "from-sky-300 to-indigo-400",
-      ကိုယ်ပိုင်စောင့်ရှောက်မှု: "from-teal-300 to-emerald-400",
+      အသုံးအဆောင်များ: "from-teal-300 to-emerald-400",
       ကလေးပစ္စည်းများ: "from-purple-200 to-pink-300",
       အိမ်သုံးပစ္စည်းများ: "from-purple-400 to-violet-500",
       လောင်စာဆီ: "from-gray-400 to-slate-500",
       အခြားများ: "from-indigo-400 to-blue-500",
-    }
-    return colors[category as keyof typeof colors] || "from-gray-400 to-slate-500"
-  }
+    };
+    return (
+      colors[category as keyof typeof colors] || "from-gray-400 to-slate-500"
+    );
+  };
 
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className={`bg-gradient-to-r ${getCategoryColor(product.category)} text-white`}>
+      <header
+        className={`bg-gradient-to-r ${getCategoryColor(
+          product.category
+        )} text-white`}
+      >
         <div className="container mx-auto px-3 py-4 sm:px-4 sm:py-6">
           <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
             <Link href="/">
-              <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 p-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white hover:bg-white/20 p-2"
+              >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
             <div className="flex-1">
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold">{product.name}</h1>
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold">
+                {product.name}
+              </h1>
               <div className="flex items-center gap-2 sm:gap-3 mt-1 sm:mt-2">
                 <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30 text-xs sm:text-sm">
                   {product.category}
                 </Badge>
-                <span className="text-white/90 text-xs sm:text-sm">{product.unit} တစ်ခုလျှင်</span>
+                <span className="text-white/90 text-xs sm:text-sm">
+                  {product.unit} တစ်ခုလျှင်
+                </span>
               </div>
             </div>
             <Link href={`/product/${productId}/add-price`}>
@@ -159,8 +205,14 @@ export default function ProductPage() {
                 <p className="text-lg sm:text-xl md:text-2xl font-bold text-primary-600">
                   {latestPrice ? `${latestPrice.price.toLocaleString()}` : "—"}
                 </p>
-                <p className="text-xs font-medium text-gray-600 mb-1">နောက်ဆုံး စျေးနှုန်း</p>
-                {latestPrice && <p className="text-xs text-gray-500 truncate">{latestPrice.location}</p>}
+                <p className="text-xs font-medium text-gray-600 mb-1">
+                  နောက်ဆုံး စျေးနှုန်း
+                </p>
+                {latestPrice && (
+                  <p className="text-xs text-gray-500 truncate">
+                    {latestPrice.location}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -171,8 +223,12 @@ export default function ProductPage() {
                 <p className="text-lg sm:text-xl md:text-2xl font-bold text-secondary-600">
                   {averagePrice > 0 ? averagePrice.toLocaleString() : "—"}
                 </p>
-                <p className="text-xs font-medium text-gray-600 mb-1">ပျမ်းမျှ</p>
-                <p className="text-xs text-gray-500">{productPrices.length} သတင်း</p>
+                <p className="text-xs font-medium text-gray-600 mb-1">
+                  ပျမ်းမျှ
+                </p>
+                <p className="text-xs text-gray-500">
+                  {productPrices.length} သတင်း
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -183,7 +239,9 @@ export default function ProductPage() {
                 <p className="text-lg sm:text-xl md:text-2xl font-bold text-success-600">
                   {minPrice > 0 ? minPrice.toLocaleString() : "—"}
                 </p>
-                <p className="text-xs font-medium text-gray-600 mb-1">အနိမ့်ဆုံး</p>
+                <p className="text-xs font-medium text-gray-600 mb-1">
+                  အနိမ့်ဆုံး
+                </p>
                 <p className="text-xs text-gray-500">အကောင်းဆုံး</p>
               </div>
             </CardContent>
@@ -195,7 +253,9 @@ export default function ProductPage() {
                 <p className="text-lg sm:text-xl md:text-2xl font-bold text-red-600">
                   {maxPrice > 0 ? maxPrice.toLocaleString() : "—"}
                 </p>
-                <p className="text-xs font-medium text-gray-600 mb-1">အမြင့်ဆုံး</p>
+                <p className="text-xs font-medium text-gray-600 mb-1">
+                  အမြင့်ဆုံး
+                </p>
                 <p className="text-xs text-gray-500">အကြီးဆုံး</p>
               </div>
             </CardContent>
@@ -211,8 +271,12 @@ export default function ProductPage() {
                   <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary-600" />
                 </div>
                 <div>
-                  <h3 className="text-base sm:text-lg md:text-xl font-bold gradient-text">စျေးနှုန်း လမ်းကြောင်း</h3>
-                  <p className="text-xs sm:text-sm text-gray-600">လတ်တလော စျေးနှုန်း ပြောင်းလဲမှုများ</p>
+                  <h3 className="text-base sm:text-lg md:text-xl font-bold gradient-text">
+                    စျေးနှုန်း လမ်းကြောင်း
+                  </h3>
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    လတ်တလော စျေးနှုန်း ပြောင်းလဲမှုများ
+                  </p>
                 </div>
               </CardTitle>
             </CardHeader>
@@ -229,12 +293,32 @@ export default function ProductPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData}>
                     <defs>
-                      <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#E63946" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#E63946" stopOpacity={0} />
+                      <linearGradient
+                        id="colorPrice"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor="#E63946"
+                          stopOpacity={0.3}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="#E63946"
+                          stopOpacity={0}
+                        />
                       </linearGradient>
                     </defs>
-                    <XAxis dataKey="date" fontSize={10} tickLine={false} axisLine={false} tick={{ fill: "#6B7280" }} />
+                    <XAxis
+                      dataKey="date"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: "#6B7280" }}
+                    />
                     <YAxis
                       fontSize={10}
                       tickLine={false}
@@ -243,7 +327,13 @@ export default function ProductPage() {
                       tick={{ fill: "#6B7280" }}
                     />
                     <ChartTooltip content={<ChartTooltipContent />} />
-                    <Area type="monotone" dataKey="price" stroke="#E63946" strokeWidth={2} fill="url(#colorPrice)" />
+                    <Area
+                      type="monotone"
+                      dataKey="price"
+                      stroke="#E63946"
+                      strokeWidth={2}
+                      fill="url(#colorPrice)"
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               </ChartContainer>
@@ -259,8 +349,12 @@ export default function ProductPage() {
                 <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-info-600" />
               </div>
               <div>
-                <h3 className="text-base sm:text-lg md:text-xl font-bold gradient-text">လတ်တလော သတင်းများ</h3>
-                <p className="text-xs sm:text-sm text-gray-600">လူထု စျေးနှုန်း အပ်ဒိတ်များ</p>
+                <h3 className="text-base sm:text-lg md:text-xl font-bold gradient-text">
+                  လတ်တလော သတင်းများ
+                </h3>
+                <p className="text-xs sm:text-sm text-gray-600">
+                  လူထု စျေးနှုန်း အပ်ဒိတ်များ
+                </p>
               </div>
             </CardTitle>
           </CardHeader>
@@ -270,9 +364,12 @@ export default function ProductPage() {
                 <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-primary-100 to-secondary-100 rounded-full flex items-center justify-center">
                   <Plus className="h-8 w-8 sm:h-10 sm:w-10 text-primary-500" />
                 </div>
-                <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">စျေးနှုန်း သတင်း မရှိသေးပါ</h3>
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">
+                  စျေးနှုန်း သတင်း မရှိသေးပါ
+                </h3>
                 <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 max-w-md mx-auto">
-                  ဤကုန်ပစ္စည်း၏ လက်ရှိ စျေးနှုန်းကို သတင်းပို့ပြီး သင့်ရပ်ရွာကို ကူညီပါ။
+                  ဤကုန်ပစ္စည်း၏ လက်ရှိ စျေးနှုန်းကို သတင်းပို့ပြီး သင့်ရပ်ရွာကို
+                  ကူညီပါ။
                 </p>
                 <Link href={`/product/${productId}/add-price`}>
                   <Button className="bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600 shadow-lg text-sm sm:text-base">
@@ -296,7 +393,9 @@ export default function ProductPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm text-gray-600">
                           <div className="flex items-center gap-2">
                             <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-success-500" />
-                            <span className="font-medium">{report.location}</span>
+                            <span className="font-medium">
+                              {report.location}
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <User className="h-3 w-3 sm:h-4 sm:w-4 text-info-500" />
@@ -305,16 +404,22 @@ export default function ProductPage() {
                         </div>
                         {report.note && (
                           <div className="mt-2 sm:mt-3 p-2 sm:p-3 bg-gray-50 rounded-lg">
-                            <p className="text-xs sm:text-sm text-gray-700 italic">"{report.note}"</p>
+                            <p className="text-xs sm:text-sm text-gray-700 italic">
+                              "{report.note}"
+                            </p>
                           </div>
                         )}
                       </div>
                       <div className="text-right flex-shrink-0">
                         <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-500 mb-1">
                           <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span>{new Date(report.reportedAt).toLocaleDateString()}</span>
+                          <span>
+                            {new Date(report.reportedAt).toLocaleDateString()}
+                          </span>
                         </div>
-                        <p className="text-xs text-gray-400">{new Date(report.reportedAt).toLocaleTimeString()}</p>
+                        <p className="text-xs text-gray-400">
+                          {new Date(report.reportedAt).toLocaleTimeString()}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -327,23 +432,33 @@ export default function ProductPage() {
         {/* Product Info */}
         <Card className="glass-card">
           <CardHeader>
-            <CardTitle className="gradient-text text-base sm:text-lg md:text-xl">ကုန်ပစ္စည်း အချက်အလက်</CardTitle>
+            <CardTitle className="gradient-text text-base sm:text-lg md:text-xl">
+              ကုန်ပစ္စည်း အချက်အလက်
+            </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             <div className="space-y-3 sm:space-y-4">
               <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-gray-600 font-medium text-sm sm:text-base">ဖန်တီးသူ:</span>
-                <span className="font-semibold text-gray-800 text-sm sm:text-base">{product.createdBy}</span>
+                <span className="text-gray-600 font-medium text-sm sm:text-base">
+                  ဖန်တီးသူ:
+                </span>
+                <span className="font-semibold text-gray-800 text-sm sm:text-base">
+                  {product.createdBy}
+                </span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-gray-600 font-medium text-sm sm:text-base">ဖန်တီးသည့်ရက်:</span>
+                <span className="text-gray-600 font-medium text-sm sm:text-base">
+                  ဖန်တီးသည့်ရက်:
+                </span>
                 <span className="font-semibold text-gray-800 text-sm sm:text-base">
                   {new Date(product.createdAt).toLocaleDateString()}
                 </span>
               </div>
               {product.barcode && (
                 <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                  <span className="text-gray-600 font-medium text-sm sm:text-base">ဘားကုဒ်:</span>
+                  <span className="text-gray-600 font-medium text-sm sm:text-base">
+                    ဘားကုဒ်:
+                  </span>
                   <span className="font-mono text-gray-800 text-sm sm:text-base bg-gray-100 px-2 py-1 rounded">
                     {product.barcode}
                   </span>
@@ -352,13 +467,17 @@ export default function ProductPage() {
             </div>
             <div className="space-y-3 sm:space-y-4">
               <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-gray-600 font-medium text-sm sm:text-base">စုစုပေါင်း သတင်းများ:</span>
+                <span className="text-gray-600 font-medium text-sm sm:text-base">
+                  စုစုပေါင်း သတင်းများ:
+                </span>
                 <Badge className="bg-primary-100 text-primary-700 font-bold text-xs sm:text-sm">
                   {productPrices.length}
                 </Badge>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-gray-600 font-medium text-sm sm:text-base">နေရာများ:</span>
+                <span className="text-gray-600 font-medium text-sm sm:text-base">
+                  နေရာများ:
+                </span>
                 <Badge className="bg-success-100 text-success-700 font-bold text-xs sm:text-sm">
                   {new Set(productPrices.map((p) => p.location)).size}
                 </Badge>
@@ -368,5 +487,5 @@ export default function ProductPage() {
         </Card>
       </main>
     </div>
-  )
+  );
 }

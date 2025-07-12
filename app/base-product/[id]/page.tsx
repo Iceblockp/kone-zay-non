@@ -122,7 +122,7 @@ export default function BaseProductPage() {
       "မုန့်နှင့် သရေစာများ": "from-pink-300 to-rose-400",
       "နို့ထွက်ပစ္စည်းနှင့် ကြက်ဥများ": "from-stone-300 to-yellow-300",
       အေးခဲအစားအစာများ: "from-sky-300 to-indigo-400",
-      ကိုယ်ပိုင်စောင့်ရှောက်မှု: "from-teal-300 to-emerald-400",
+      အသုံးအဆောင်များ: "from-teal-300 to-emerald-400",
       ကလေးပစ္စည်းများ: "from-purple-200 to-pink-300",
       အိမ်သုံးပစ္စည်းများ: "from-purple-400 to-violet-500",
       လောင်စာဆီ: "from-gray-400 to-slate-500",

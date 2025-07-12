@@ -124,7 +124,7 @@ export default function AddProductPage() {
       color: "from-sky-300 to-indigo-400",
     },
     {
-      value: "ကိုယ်ပိုင်စောင့်ရှောက်မှု",
+      value: "အသုံးအဆောင်များ",
       icon: "🧴",
       color: "from-teal-300 to-emerald-400",
     },
