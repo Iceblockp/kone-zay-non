@@ -90,13 +90,13 @@ export default function HomePage() {
             <div className="flex items-center justify-center gap-2 mb-3">
               <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-accent-300" />
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">
-                မြန်မာ စျေးနှုန်း ခြေရာခံ
+                ရန်ကုန် စျေးနှုန်း ခြေရာခံ
               </h1>
             </div>
             <p className="text-sm sm:text-base md:text-lg text-primary-100 mb-4 sm:mb-6 max-w-2xl mx-auto px-2">
-              မြန်မာနိုင်ငံတစ်ဝှမ်းရှိ စျေးနှုန်းများကို လူထုအားဖြင့်
+              ရန်ကုန်မြို့တစ်ဝှမ်းရှိ ကုန်စျေးနှုန်းများကို လူထုအားဖြင့်
               စောင့်ကြည့်ပြီး ပိုမိုကောင်းမွန်သော ဈေးဝယ်ဆုံးဖြတ်ချက်များ
-              ချမှတ်နိုင်ရန်
+              ချမှတ်နိုင်ရန်၊ ဂျင်းမမိစေရန်။
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center">
               <Link href="/add-product">
@@ -108,12 +108,12 @@ export default function HomePage() {
                   ကုန်ပစ္စည်း ထည့်ရန်
                 </Button>
               </Link>
-              <div className="flex items-center gap-2 text-primary-100">
+              {/* <div className="flex items-center gap-2 text-primary-100">
                 <Users className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="text-xs sm:text-sm">
                   {baseProducts.length + 150} ယောက် ပါဝင်ပြီး
                 </span>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>

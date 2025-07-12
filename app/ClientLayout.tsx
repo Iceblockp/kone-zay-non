@@ -6,6 +6,7 @@ import "./globals.css";
 import { useEffect } from "react";
 import { migrateLocalStorageData } from "@/lib/data-migration";
 import { ReactQueryProvider } from "@/lib/react-query";
+import { Header } from "@/components/header";
 
 const noto = Noto_Sans_Myanmar({
   subsets: ["myanmar"],
@@ -25,7 +26,10 @@ export default function ClientLayout({
   return (
     <html lang="my">
       <body className={noto.className}>
-        <ReactQueryProvider>{children}</ReactQueryProvider>
+        <ReactQueryProvider>
+          <Header />
+          {children}
+        </ReactQueryProvider>
       </body>
     </html>
   );
