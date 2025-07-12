@@ -228,12 +228,12 @@ export default function AddProductPage() {
       });
 
       // Automatically create a default variant for the new base product
-      await createVariantMutation.mutateAsync({
-        baseProductId: newBaseProduct.id,
-        variantName: `${newBaseProduct.name} (Default)`,
-        unit: "ခု",
-        createdBy: newBaseProductFormData.createdBy.trim(),
-      });
+      // await createVariantMutation.mutateAsync({
+      //   baseProductId: newBaseProduct.id,
+      //   variantName: `${newBaseProduct.name} (Default)`,
+      //   unit: "ခု",
+      //   createdBy: newBaseProductFormData.createdBy.trim(),
+      // });
 
       router.push(`/base-product/${newBaseProduct.id}`); // Navigate to the new base product's detail page
     } catch (error) {
