@@ -16,17 +16,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { BaseProduct } from "@/types/product";
+import { useBaseProduct, useUpdateBaseProduct } from "@/hooks/use-api";
+import { LoadingSpinner } from "@/components/loading-spinner";
 
 export default function EditBaseProductPage() {
   const params = useParams();
   const router = useRouter();
   const baseProductId = params.id as string;
 
-  const [baseProducts, setBaseProducts] = useState<BaseProduct[]>([]);
+  const { data: baseProductData, isLoading } = useBaseProduct(baseProductId);
+  const updateBaseProductMutation = useUpdateBaseProduct();
+
   const [formData, setFormData] = useState({
     name: "",
     category: "",
-    imageUrl: "", // New field for image URL
+    imageUrl: "", // Note: We'll still use localStorage for images temporarily
   });
 
   const categories = [
@@ -87,37 +91,28 @@ export default function EditBaseProductPage() {
   ];
 
   useEffect(() => {
-    const savedBaseProducts = localStorage.getItem("baseProducts");
-    if (savedBaseProducts) {
-      const parsedBaseProducts: BaseProduct[] = JSON.parse(savedBaseProducts);
-      setBaseProducts(parsedBaseProducts);
+    if (baseProductData) {
+      const baseProduct = baseProductData;
 
-      const baseProduct = parsedBaseProducts.find(
-        (p) => p.id === baseProductId
-      );
-      if (baseProduct) {
-        // Check if there's an imageUrl in localStorage
-        const productImages = localStorage.getItem("productImages");
-        let imageUrl = "";
-        if (productImages) {
-          const parsedImages = JSON.parse(productImages);
-          if (parsedImages[baseProductId]) {
-            imageUrl = parsedImages[baseProductId];
-          }
+      // Check if there's an imageUrl in localStorage (temporary solution until API supports images)
+      const productImages = localStorage.getItem("productImages");
+      let imageUrl = "";
+      if (productImages) {
+        const parsedImages = JSON.parse(productImages);
+        if (parsedImages[baseProductId]) {
+          imageUrl = parsedImages[baseProductId];
         }
-
-        setFormData({
-          name: baseProduct.name,
-          category: baseProduct.category,
-          imageUrl: imageUrl,
-        });
-      } else {
-        router.push("/admin/products");
       }
-    }
-  }, [baseProductId, router]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+      setFormData({
+        name: baseProduct.name,
+        category: baseProduct.category,
+        imageUrl: imageUrl,
+      });
+    }
+  }, [baseProductData, baseProductId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.name || !formData.category) {
@@ -125,30 +120,38 @@ export default function EditBaseProductPage() {
       return;
     }
 
-    const updatedBaseProducts = baseProducts.map((p) => {
-      if (p.id === baseProductId) {
-        return {
-          ...p,
+    try {
+      // Update the base product via API
+      await updateBaseProductMutation.mutateAsync({
+        id: baseProductId,
+        data: {
           name: formData.name.trim(),
           category: formData.category,
-        };
+        },
+      });
+
+      // Save the image URL if provided (still using localStorage temporarily)
+      if (formData.imageUrl) {
+        const productImages = localStorage.getItem("productImages") || "{}";
+        const parsedImages = JSON.parse(productImages);
+        parsedImages[baseProductId] = formData.imageUrl.trim();
+        localStorage.setItem("productImages", JSON.stringify(parsedImages));
       }
-      return p;
-    });
 
-    // Save the updated base products
-    localStorage.setItem("baseProducts", JSON.stringify(updatedBaseProducts));
-
-    // Save the image URL if provided
-    if (formData.imageUrl) {
-      const productImages = localStorage.getItem("productImages") || "{}";
-      const parsedImages = JSON.parse(productImages);
-      parsedImages[baseProductId] = formData.imageUrl.trim();
-      localStorage.setItem("productImages", JSON.stringify(parsedImages));
+      router.push("/admin/products");
+    } catch (error) {
+      console.error("Error updating base product:", error);
+      alert("ကုန်ပစ္စည်းပြင်ဆင်ရာတွင် အမှားရှိနေပါသည်။");
     }
-
-    router.push("/admin/products");
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -234,8 +237,13 @@ export default function EditBaseProductPage() {
               <Button
                 type="submit"
                 className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+                disabled={updateBaseProductMutation.isPending}
               >
-                <Save className="h-4 w-4 mr-2" />
+                {updateBaseProductMutation.isPending ? (
+                  <LoadingSpinner size="sm" className="mr-2" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
                 သိမ်းဆည်းမည်
               </Button>
             </form>

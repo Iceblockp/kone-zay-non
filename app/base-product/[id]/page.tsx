@@ -15,42 +15,52 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { BaseProduct, ProductVariant, PriceReport } from "@/types/product";
+import { useBaseProduct, useVariants, usePriceReports } from "@/hooks/use-api";
 
 export default function BaseProductPage() {
   const params = useParams();
   const router = useRouter();
   const baseProductId = params.id as string;
 
+  // API ခေါ်ယူမှုများ
+  const { data: baseProductData, isLoading: isLoadingBaseProduct } =
+    useBaseProduct(baseProductId);
+  const { data: variantsData, isLoading: isLoadingVariants } = useVariants({
+    baseProductId,
+  });
+  const { data: priceReportsData, isLoading: isLoadingPriceReports } =
+    usePriceReports();
+
+  // ဒေတာများကို state တွင် သိမ်းဆည်းခြင်း
   const [baseProduct, setBaseProduct] = useState<BaseProduct | null>(null);
   const [productVariants, setProductVariants] = useState<ProductVariant[]>([]);
   const [priceReports, setPriceReports] = useState<PriceReport[]>([]);
 
+  // API မှ ရရှိသော ဒေတာများကို state သို့ ပြောင်းလဲခြင်း
   useEffect(() => {
-    const savedBaseProducts = localStorage.getItem("baseProducts");
-    const savedProductVariants = localStorage.getItem("productVariants");
-    const savedPriceReports = localStorage.getItem("priceReports");
-
-    if (savedBaseProducts) {
-      const allBaseProducts: BaseProduct[] = JSON.parse(savedBaseProducts);
-      const foundBaseProduct = allBaseProducts.find(
-        (bp) => bp.id === baseProductId
-      );
-      setBaseProduct(foundBaseProduct || null);
+    if (baseProductData) {
+      setBaseProduct(baseProductData);
     }
 
-    if (savedProductVariants) {
-      const allProductVariants: ProductVariant[] =
-        JSON.parse(savedProductVariants);
-      const variantsForBaseProduct = allProductVariants.filter(
-        (v) => v.baseProductId === baseProductId
-      );
-      setProductVariants(variantsForBaseProduct);
+    if (variantsData) {
+      setProductVariants(variantsData.data || []);
     }
 
-    if (savedPriceReports) {
-      setPriceReports(JSON.parse(savedPriceReports));
+    if (priceReportsData) {
+      setPriceReports(priceReportsData.data || []);
     }
-  }, [baseProductId]);
+  }, [baseProductData, variantsData, priceReportsData]);
+
+  // ပုံရိပ်ရယူခြင်း function ကို localStorage မှ API သို့ ပြောင်းလဲရန် လိုအပ်ပါသည်
+  // ယာယီအားဖြင့် localStorage ကို ဆက်လက်အသုံးပြုထားပါသည်
+  const getProductImage = (id: string) => {
+    const productImages = localStorage.getItem("productImages");
+    if (productImages) {
+      const parsedImages = JSON.parse(productImages);
+      return parsedImages[id] || null;
+    }
+    return null;
+  };
 
   const getLatestPriceForVariant = (variantId: string) => {
     const variantReports = priceReports
@@ -84,17 +94,28 @@ export default function BaseProductPage() {
     );
   };
 
-  // Add this code after the getCategoryColor function in the existing file
+  // Loading state ကို စစ်ဆေးခြင်း
+  if (isLoadingBaseProduct || isLoadingVariants || isLoadingPriceReports) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="glass-card max-w-md w-full">
+          <CardContent className="p-6 sm:p-8 text-center">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center animate-pulse">
+              <Package className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500" />
+            </div>
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">
+              ဒေတာများ ရယူနေပါသည်
+            </h3>
+            <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
+              ခဏစောင့်ပါ...
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-  const getProductImage = (id: string) => {
-    const productImages = localStorage.getItem("productImages");
-    if (productImages) {
-      const parsedImages = JSON.parse(productImages);
-      return parsedImages[id] || null;
-    }
-    return null;
-  };
-
+  // ကုန်ပစ္စည်း မတွေ့ရှိပါက
   if (!baseProduct) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">

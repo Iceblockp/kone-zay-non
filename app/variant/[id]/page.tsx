@@ -22,52 +22,82 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { XAxis, YAxis, ResponsiveContainer, Area, AreaChart } from "recharts";
-import type { BaseProduct, ProductVariant, PriceReport } from "@/types/product"; // Import new types
+import type { BaseProduct, ProductVariant, PriceReport } from "@/types/product";
+import { useInView } from "react-intersection-observer";
+import {
+  useInfinitePriceReports,
+  useVariant,
+  useBaseProduct,
+} from "@/hooks/use-api";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 export default function VariantPage() {
   const params = useParams();
   const router = useRouter();
   const variantId = params.id as string;
 
-  const [baseProduct, setBaseProduct] = useState<BaseProduct | null>(null);
-  const [productVariant, setProductVariant] = useState<ProductVariant | null>(
-    null
-  );
-  const [priceReports, setPriceReports] = useState<PriceReport[]>([]);
+  // Use API hooks instead of localStorage
+  const { data: variantData, isLoading: isLoadingVariant } =
+    useVariant(variantId);
+  const { data: baseProductData, isLoading: isLoadingBaseProduct } =
+    useBaseProduct(variantData?.baseProductId || "");
+
   const [variantPrices, setVariantPrices] = useState<PriceReport[]>([]);
 
+  // Set up the intersection observer for infinite scrolling
+  const { ref, inView } = useInView({
+    threshold: 0,
+    triggerOnce: false,
+  });
+
+  // Use the infinite query hook for price reports
+  const {
+    data: infinitePriceReports,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    status,
+    isLoading: isLoadingPriceReports,
+  } = useInfinitePriceReports({ variantId, limit: 10 });
+
+  // Load more data when the load more element comes into view
   useEffect(() => {
-    const savedBaseProducts = localStorage.getItem("baseProducts");
-    const savedProductVariants = localStorage.getItem("productVariants");
-    const savedPriceReports = localStorage.getItem("priceReports");
-
-    if (savedProductVariants) {
-      const allProductVariants: ProductVariant[] =
-        JSON.parse(savedProductVariants);
-      const foundVariant = allProductVariants.find((v) => v.id === variantId);
-      setProductVariant(foundVariant || null);
-
-      if (foundVariant && savedBaseProducts) {
-        const allBaseProducts: BaseProduct[] = JSON.parse(savedBaseProducts);
-        const foundBaseProduct = allBaseProducts.find(
-          (bp) => bp.id === foundVariant.baseProductId
-        );
-        setBaseProduct(foundBaseProduct || null);
-      }
+    if (inView && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
+  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-    if (savedPriceReports) {
-      const reports: PriceReport[] = JSON.parse(savedPriceReports);
-      setPriceReports(reports);
-      const variantReports = reports
-        .filter((report) => report.variantId === variantId)
-        .sort(
-          (a, b) =>
-            new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()
-        );
-      setVariantPrices(variantReports);
+  // Update variantPrices when infinitePriceReports changes
+  useEffect(() => {
+    if (infinitePriceReports) {
+      const allReports = infinitePriceReports.pages.flatMap(
+        (page) => page.data
+      );
+      const sortedReports = [...allReports].sort(
+        (a, b) =>
+          new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()
+      );
+      setVariantPrices(sortedReports);
     }
-  }, [variantId]);
+  }, [infinitePriceReports]);
+
+  // Combine all price reports from infinite query pages
+  const allPriceReports = infinitePriceReports
+    ? infinitePriceReports.pages.flatMap((page) => page.data)
+    : [];
+
+  // Show loading state while data is being fetched
+  if (isLoadingVariant || isLoadingBaseProduct || isLoadingPriceReports) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  // Extract data from API responses
+  const productVariant = variantData;
+  const baseProduct = baseProductData;
 
   if (!productVariant || !baseProduct) {
     return (
@@ -146,8 +176,7 @@ export default function VariantPage() {
     );
   };
 
-  // Add this code after the getCategoryColor function in the existing file
-
+  // Keep using localStorage for images temporarily until we have an API endpoint for images
   const getProductImage = (id: string) => {
     const productImages = localStorage.getItem("productImages");
     if (productImages) {
@@ -387,7 +416,7 @@ export default function VariantPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {variantPrices.length === 0 ? (
+            {allPriceReports.length === 0 ? (
               <div className="text-center py-8 sm:py-12">
                 <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-primary-100 to-secondary-100 rounded-full flex items-center justify-center">
                   <Plus className="h-8 w-8 sm:h-10 sm:w-10 text-primary-500" />
@@ -407,7 +436,7 @@ export default function VariantPage() {
               </div>
             ) : (
               <div className="space-y-3 sm:space-y-4">
-                {variantPrices.slice(0, 10).map((report, index) => (
+                {allPriceReports.map((report, index) => (
                   <div
                     key={report.id}
                     className="border border-gray-200 rounded-lg sm:rounded-xl p-4 sm:p-6 hover:shadow-lg transition-all duration-300 animate-fade-in"
@@ -452,6 +481,24 @@ export default function VariantPage() {
                     </div>
                   </div>
                 ))}
+
+                {/* Load more trigger element */}
+                {(hasNextPage || isFetchingNextPage) && (
+                  <div ref={ref} className="py-4 flex justify-center">
+                    {isFetchingNextPage ? (
+                      <div className="flex items-center gap-2">
+                        <LoadingSpinner size="sm" />
+                        <span className="text-sm text-gray-500">
+                          နောက်ထပ် သတင်းများ ရယူနေသည်...
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-gray-500">
+                        နောက်ထပ် သတင်းများ ရယူရန် ဆက်လက် scroll ဆွဲပါ
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

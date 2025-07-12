@@ -16,22 +16,28 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { BaseProduct, ProductVariant } from "@/types/product";
+import { useVariant, useBaseProduct, useUpdateVariant } from "@/hooks/use-api";
+import { LoadingSpinner } from "@/components/loading-spinner";
 
 export default function EditVariantPage() {
   const params = useParams();
   const router = useRouter();
   const variantId = params.id as string;
 
-  const [baseProducts, setBaseProducts] = useState<BaseProduct[]>([]);
-  const [productVariants, setProductVariants] = useState<ProductVariant[]>([]);
-  const [baseProduct, setBaseProduct] = useState<BaseProduct | null>(null);
+  const { data: variantData, isLoading: isLoadingVariant } =
+    useVariant(variantId);
+  const updateVariantMutation = useUpdateVariant();
+
+  const [baseProductId, setBaseProductId] = useState<string>("");
+  const { data: baseProductData, isLoading: isLoadingBaseProduct } =
+    useBaseProduct(baseProductId);
 
   const [formData, setFormData] = useState({
     variantName: "",
     unit: "",
     sizeValue: "",
     barcode: "",
-    imageUrl: "", // New field for image URL
+    imageUrl: "", // Still using localStorage for images temporarily
   });
 
   const units = [
@@ -52,48 +58,31 @@ export default function EditVariantPage() {
   ];
 
   useEffect(() => {
-    const savedBaseProducts = localStorage.getItem("baseProducts");
-    const savedProductVariants = localStorage.getItem("productVariants");
+    if (variantData) {
+      const variant = variantData;
+      setBaseProductId(variant.baseProductId);
 
-    if (savedBaseProducts && savedProductVariants) {
-      const parsedBaseProducts: BaseProduct[] = JSON.parse(savedBaseProducts);
-      const parsedProductVariants: ProductVariant[] =
-        JSON.parse(savedProductVariants);
-
-      setBaseProducts(parsedBaseProducts);
-      setProductVariants(parsedProductVariants);
-
-      const variant = parsedProductVariants.find((v) => v.id === variantId);
-      if (variant) {
-        const relatedBaseProduct = parsedBaseProducts.find(
-          (bp) => bp.id === variant.baseProductId
-        );
-        setBaseProduct(relatedBaseProduct || null);
-
-        // Check if there's an imageUrl in localStorage
-        const productImages = localStorage.getItem("productImages");
-        let imageUrl = "";
-        if (productImages) {
-          const parsedImages = JSON.parse(productImages);
-          if (parsedImages[variantId]) {
-            imageUrl = parsedImages[variantId];
-          }
+      // Check if there's an imageUrl in localStorage (temporary solution until API supports images)
+      const productImages = localStorage.getItem("productImages");
+      let imageUrl = "";
+      if (productImages) {
+        const parsedImages = JSON.parse(productImages);
+        if (parsedImages[variantId]) {
+          imageUrl = parsedImages[variantId];
         }
-
-        setFormData({
-          variantName: variant.variantName,
-          unit: variant.unit,
-          sizeValue: variant.sizeValue?.toString() || "",
-          barcode: variant.barcode || "",
-          imageUrl: imageUrl,
-        });
-      } else {
-        router.push("/admin/products");
       }
-    }
-  }, [variantId, router]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+      setFormData({
+        variantName: variant.variantName,
+        unit: variant.unit,
+        sizeValue: variant.sizeValue?.toString() || "",
+        barcode: variant.barcode || "",
+        imageUrl: imageUrl,
+      });
+    }
+  }, [variantData, variantId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.variantName || !formData.unit) {
@@ -101,37 +90,44 @@ export default function EditVariantPage() {
       return;
     }
 
-    const updatedProductVariants = productVariants.map((v) => {
-      if (v.id === variantId) {
-        return {
-          ...v,
+    try {
+      // Update the variant via API
+      await updateVariantMutation.mutateAsync({
+        id: variantId,
+        data: {
           variantName: formData.variantName.trim(),
           unit: formData.unit,
           sizeValue: formData.sizeValue
             ? Number.parseFloat(formData.sizeValue)
             : undefined,
           barcode: formData.barcode.trim() || undefined,
-        };
+        },
+      });
+
+      // Save the image URL if provided (still using localStorage temporarily)
+      if (formData.imageUrl) {
+        const productImages = localStorage.getItem("productImages") || "{}";
+        const parsedImages = JSON.parse(productImages);
+        parsedImages[variantId] = formData.imageUrl.trim();
+        localStorage.setItem("productImages", JSON.stringify(parsedImages));
       }
-      return v;
-    });
 
-    // Save the updated variants
-    localStorage.setItem(
-      "productVariants",
-      JSON.stringify(updatedProductVariants)
-    );
-
-    // Save the image URL if provided
-    if (formData.imageUrl) {
-      const productImages = localStorage.getItem("productImages") || "{}";
-      const parsedImages = JSON.parse(productImages);
-      parsedImages[variantId] = formData.imageUrl.trim();
-      localStorage.setItem("productImages", JSON.stringify(parsedImages));
+      router.push("/admin/products");
+    } catch (error) {
+      console.error("Error updating variant:", error);
+      alert("အမျိုးအစားပြင်ဆင်ရာတွင် အမှားရှိနေပါသည်။");
     }
-
-    router.push("/admin/products");
   };
+
+  const isLoading = isLoadingVariant || (baseProductId && isLoadingBaseProduct);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -159,7 +155,7 @@ export default function EditVariantPage() {
         <Card className="border-2 border-gray-100 shadow-lg">
           <CardHeader>
             <CardTitle className="text-center text-xl">
-              {baseProduct?.name} - အမျိုးအစား ပြင်ဆင်ရန်
+              {baseProductData?.name} - အမျိုးအစား ပြင်ဆင်ရန်
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -243,8 +239,13 @@ export default function EditVariantPage() {
               <Button
                 type="submit"
                 className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+                disabled={updateVariantMutation.isPending}
               >
-                <Save className="h-4 w-4 mr-2" />
+                {updateVariantMutation.isPending ? (
+                  <LoadingSpinner size="sm" className="mr-2" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
                 သိမ်းဆည်းမည်
               </Button>
             </form>

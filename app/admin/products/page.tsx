@@ -9,33 +9,31 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { BaseProduct, ProductVariant, PriceReport } from "@/types/product";
+import {
+  useBaseProducts,
+  useVariants,
+  useDeleteBaseProduct,
+  useDeleteVariant,
+} from "@/hooks/use-api";
+import { LoadingSpinner } from "@/components/loading-spinner";
 
 export default function AdminProductsPage() {
-  const [baseProducts, setBaseProducts] = useState<BaseProduct[]>([]);
-  const [productVariants, setProductVariants] = useState<ProductVariant[]>([]);
-  const [priceReports, setPriceReports] = useState<PriceReport[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredBaseProducts, setFilteredBaseProducts] = useState<
     BaseProduct[]
   >([]);
   const [activeTab, setActiveTab] = useState("products");
 
-  useEffect(() => {
-    // Load data from localStorage
-    const savedBaseProducts = localStorage.getItem("baseProducts");
-    const savedProductVariants = localStorage.getItem("productVariants");
-    const savedPriceReports = localStorage.getItem("priceReports");
+  // Fetch data using API hooks
+  const { data: baseProductsData, isLoading: isLoadingBaseProducts } =
+    useBaseProducts();
+  const { data: variantsData, isLoading: isLoadingVariants } = useVariants();
+  const deleteBaseProductMutation = useDeleteBaseProduct();
+  const deleteVariantMutation = useDeleteVariant();
 
-    if (savedBaseProducts) {
-      setBaseProducts(JSON.parse(savedBaseProducts));
-    }
-    if (savedProductVariants) {
-      setProductVariants(JSON.parse(savedProductVariants));
-    }
-    if (savedPriceReports) {
-      setPriceReports(JSON.parse(savedPriceReports));
-    }
-  }, []);
+  // Extract the actual data arrays from the API responses
+  const baseProducts = baseProductsData?.data || [];
+  const productVariants = variantsData?.data || [];
 
   useEffect(() => {
     if (searchTerm.trim() === "") {
@@ -84,65 +82,31 @@ export default function AdminProductsPage() {
     );
   };
 
-  const handleDeleteBaseProduct = (baseProductId: string) => {
+  const handleDeleteBaseProduct = async (baseProductId: string) => {
     if (
       window.confirm(
         "ဤကုန်ပစ္စည်းနှင့် ၎င်း၏အမျိုးအစားများအားလုံးကို ဖျက်မှာသေချာပါသလား?"
       )
     ) {
-      // Get all variant IDs for this base product
-      const variantIds = productVariants
-        .filter((variant) => variant.baseProductId === baseProductId)
-        .map((variant) => variant.id);
-
-      // Remove price reports for these variants
-      const updatedPriceReports = priceReports.filter(
-        (report) => !variantIds.includes(report.variantId)
-      );
-
-      // Remove variants
-      const updatedProductVariants = productVariants.filter(
-        (variant) => variant.baseProductId !== baseProductId
-      );
-
-      // Remove base product
-      const updatedBaseProducts = baseProducts.filter(
-        (bp) => bp.id !== baseProductId
-      );
-
-      // Update state and localStorage
-      setBaseProducts(updatedBaseProducts);
-      setProductVariants(updatedProductVariants);
-      setPriceReports(updatedPriceReports);
-      localStorage.setItem("baseProducts", JSON.stringify(updatedBaseProducts));
-      localStorage.setItem(
-        "productVariants",
-        JSON.stringify(updatedProductVariants)
-      );
-      localStorage.setItem("priceReports", JSON.stringify(updatedPriceReports));
+      try {
+        await deleteBaseProductMutation.mutateAsync(baseProductId);
+        // The query invalidation in the mutation will automatically update the UI
+      } catch (error) {
+        console.error("Error deleting base product:", error);
+        alert("ကုန်ပစ္စည်းဖျက်ရာတွင် အမှားရှိနေပါသည်။");
+      }
     }
   };
 
-  const handleDeleteVariant = (variantId: string) => {
+  const handleDeleteVariant = async (variantId: string) => {
     if (window.confirm("ဤအမျိုးအစားကို ဖျက်မှာသေချာပါသလား?")) {
-      // Remove price reports for this variant
-      const updatedPriceReports = priceReports.filter(
-        (report) => report.variantId !== variantId
-      );
-
-      // Remove variant
-      const updatedProductVariants = productVariants.filter(
-        (variant) => variant.id !== variantId
-      );
-
-      // Update state and localStorage
-      setProductVariants(updatedProductVariants);
-      setPriceReports(updatedPriceReports);
-      localStorage.setItem(
-        "productVariants",
-        JSON.stringify(updatedProductVariants)
-      );
-      localStorage.setItem("priceReports", JSON.stringify(updatedPriceReports));
+      try {
+        await deleteVariantMutation.mutateAsync(variantId);
+        // The query invalidation in the mutation will automatically update the UI
+      } catch (error) {
+        console.error("Error deleting variant:", error);
+        alert("အမျိုးအစားဖျက်ရာတွင် အမှားရှိနေပါသည်။");
+      }
     }
   };
 
@@ -170,6 +134,15 @@ export default function AdminProductsPage() {
       "bg-gray-100 text-gray-800 border-gray-200"
     );
   };
+
+  // Show loading state while data is being fetched
+  if (isLoadingBaseProducts || isLoadingVariants) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -268,6 +241,7 @@ export default function AdminProductsPage() {
                               onClick={() =>
                                 handleDeleteBaseProduct(baseProduct.id)
                               }
+                              disabled={deleteBaseProductMutation.isPending}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -386,6 +360,7 @@ export default function AdminProductsPage() {
                                   onClick={() =>
                                     handleDeleteVariant(variant.id)
                                   }
+                                  disabled={deleteVariantMutation.isPending}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>

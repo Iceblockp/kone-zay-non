@@ -1,93 +1,111 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
-import Link from "next/link"
-import { ArrowLeft, MapPin, DollarSign, User, FileText, Sparkles } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { BaseProduct, ProductVariant, PriceReport } from "@/types/product" // Import new types
+import { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  MapPin,
+  DollarSign,
+  User,
+  FileText,
+  Sparkles,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { BaseProduct, ProductVariant, PriceReport } from "@/types/product";
+import {
+  useVariant,
+  useBaseProduct,
+  useCreatePriceReport,
+} from "@/hooks/use-api";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 export default function AddPricePage() {
-  const params = useParams()
-  const router = useRouter()
-  const variantId = params.id as string // Changed from productId to variantId
+  const params = useParams();
+  const router = useRouter();
+  const variantId = params.id as string;
 
-  const [baseProduct, setBaseProduct] = useState<BaseProduct | null>(null)
-  const [productVariant, setProductVariant] = useState<ProductVariant | null>(null)
+  // Use API hooks instead of localStorage
+  const { data: variantData, isLoading: isLoadingVariant } =
+    useVariant(variantId);
+  const { data: baseProductData, isLoading: isLoadingBaseProduct } =
+    useBaseProduct(variantData?.baseProductId || "");
+
   const [formData, setFormData] = useState({
     price: "",
     location: "",
     reportedBy: "",
     note: "",
-  })
+  });
 
+  // Use the mutation hook for creating price reports
+  const createPriceReportMutation = useCreatePriceReport();
+
+  // Load saved user name from localStorage
   useEffect(() => {
-    const savedBaseProducts = localStorage.getItem("baseProducts")
-    const savedProductVariants = localStorage.getItem("productVariants")
-
-    if (savedProductVariants) {
-      const allProductVariants: ProductVariant[] = JSON.parse(savedProductVariants)
-      const foundVariant = allProductVariants.find((v) => v.id === variantId)
-      setProductVariant(foundVariant || null)
-
-      if (foundVariant && savedBaseProducts) {
-        const allBaseProducts: BaseProduct[] = JSON.parse(savedBaseProducts)
-        const foundBaseProduct = allBaseProducts.find((bp) => bp.id === foundVariant.baseProductId)
-        setBaseProduct(foundBaseProduct || null)
-      }
-    }
-  }, [variantId])
-
-  // Add this useEffect after existing useEffect to load saved user name
-  useEffect(() => {
-    const savedUserName = localStorage.getItem("userName")
+    const savedUserName = localStorage.getItem("userName");
     if (savedUserName) {
-      setFormData((prev) => ({ ...prev, reportedBy: savedUserName }))
+      setFormData((prev) => ({ ...prev, reportedBy: savedUserName }));
     }
-  }, [])
+  }, []);
 
-  // Update handleSubmit to save user name
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  // Update handleSubmit to use the API
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
     if (!formData.price || !formData.location || !formData.reportedBy) {
-      alert("ကျေးဇူးပြု၍ လိုအပ်သော အကွက်များကို ဖြည့်ပါ")
-      return
+      alert("ကျေးဇူးပြု၍ လိုအပ်သော အကွက်များကို ဖြည့်ပါ");
+      return;
     }
 
-    const price = Number.parseFloat(formData.price)
+    const price = Number.parseFloat(formData.price);
     if (isNaN(price) || price <= 0) {
-      alert("ကျေးဇူးပြု၍ မှန်ကန်သော စျေးနှုန်း ရိုက်ထည့်ပါ")
-      return
+      alert("ကျေးဇူးပြု၍ မှန်ကန်သော စျေးနှုန်း ရိုက်ထည့်ပါ");
+      return;
     }
 
-    // Save user name to localStorage
-    localStorage.setItem("userName", formData.reportedBy.trim())
+    // Save user name to localStorage (keep this functionality)
+    localStorage.setItem("userName", formData.reportedBy.trim());
 
-    const newPriceReport: PriceReport = {
-      id: Date.now().toString(),
-      variantId: variantId, // Changed from productId to variantId
-      price: price,
-      location: formData.location.trim(),
-      reportedBy: formData.reportedBy.trim(),
-      reportedAt: new Date().toISOString(),
-      note: formData.note.trim() || undefined,
+    // Create the price report using the API
+    try {
+      await createPriceReportMutation.mutateAsync({
+        variantId: variantId,
+        price: price,
+        location: formData.location.trim(),
+        reportedBy: formData.reportedBy.trim(),
+        reportedAt: new Date().toISOString(),
+        note: formData.note.trim() || undefined,
+      });
+
+      // Navigate back to the variant page after successful submission
+      router.push(`/variant/${variantId}`);
+    } catch (error) {
+      console.error("Error creating price report:", error);
+      alert(
+        "စျေးနှုန်း သတင်းပို့ရာတွင် အမှားရှိနေပါသည်။ ထပ်မံကြိုးစားကြည့်ပါ။"
+      );
     }
+  };
 
-    const savedPriceReports = localStorage.getItem("priceReports")
-    const priceReports: PriceReport[] = savedPriceReports ? JSON.parse(savedPriceReports) : []
-    const updatedPriceReports = [...priceReports, newPriceReport]
-
-    localStorage.setItem("priceReports", JSON.stringify(updatedPriceReports))
-
-    router.push(`/variant/${variantId}`) // Changed navigation
+  // Show loading state while data is being fetched
+  if (isLoadingVariant || isLoadingBaseProduct) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
   }
+
+  // Extract data from API responses
+  const productVariant = variantData;
+  const baseProduct = baseProductData;
 
   if (!productVariant || !baseProduct) {
     return (
@@ -97,8 +115,12 @@ export default function AddPricePage() {
             <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 bg-gradient-to-br from-red-100 to-red-200 rounded-full flex items-center justify-center">
               <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-red-500" />
             </div>
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">အမျိုးအစား မတွေ့ပါ</h3>
-            <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">သင်စျေးနှုန်း သတင်းပို့လိုသော အမျိုးအစား မရှိပါ။</p>
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">
+              အမျိုးအစား မတွေ့ပါ
+            </h3>
+            <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
+              သင်စျေးနှုန်း သတင်းပို့လိုသော အမျိုးအစား မရှိပါ။
+            </p>
             <Link href="/">
               <Button className="bg-gradient-to-r from-primary-500 to-secondary-500 text-sm sm:text-base">
                 မူလစာမျက်နှာ
@@ -107,7 +129,7 @@ export default function AddPricePage() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   const getCategoryColor = (category: string) => {
@@ -126,18 +148,28 @@ export default function AddPricePage() {
       အိမ်သုံးပစ္စည်းများ: "from-purple-400 to-violet-500",
       လောင်စာဆီ: "from-gray-400 to-slate-500",
       အခြားများ: "from-indigo-400 to-blue-500",
-    }
-    return colors[category as keyof typeof colors] || "from-gray-400 to-slate-500"
-  }
+    };
+    return (
+      colors[category as keyof typeof colors] || "from-gray-400 to-slate-500"
+    );
+  };
 
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className={`bg-gradient-to-r ${getCategoryColor(baseProduct.category)} text-white`}>
+      <header
+        className={`bg-gradient-to-r ${getCategoryColor(
+          baseProduct.category
+        )} text-white`}
+      >
         <div className="container mx-auto px-3 py-4 sm:px-4 sm:py-6">
           <div className="flex items-center gap-3 sm:gap-4">
             <Link href={`/variant/${variantId}`}>
-              <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 p-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white hover:bg-white/20 p-2"
+              >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
@@ -148,7 +180,10 @@ export default function AddPricePage() {
               </h1>
               <p className="text-xs sm:text-sm text-white/90">
                 {productVariant.variantName} ({productVariant.unit}
-                {productVariant.sizeValue ? ` ${productVariant.sizeValue}` : ""} တစ်ခုလျှင်)
+                {productVariant.sizeValue
+                  ? ` ${productVariant.sizeValue}`
+                  : ""}{" "}
+                တစ်ခုလျှင်)
               </p>
             </div>
           </div>
@@ -158,8 +193,12 @@ export default function AddPricePage() {
       <main className="container mx-auto px-3 py-4 sm:px-4 sm:py-6">
         <Card className="max-w-2xl mx-auto glass-card shadow-2xl">
           <CardHeader className="text-center pb-2">
-            <CardTitle className="text-lg sm:text-xl md:text-2xl gradient-text">စျေးနှုန်း အချက်အလက်</CardTitle>
-            <p className="text-sm sm:text-base text-gray-600">လက်ရှi စျေးနှုန်း ဒေတာဖြင့် သင့်ရပ်ရွာကို ကူညီပါ</p>
+            <CardTitle className="text-lg sm:text-xl md:text-2xl gradient-text">
+              စျေးနှုန်း အချက်အလက်
+            </CardTitle>
+            <p className="text-sm sm:text-base text-gray-600">
+              လက်ရှi စျေးနှုန်း ဒေတာဖြင့် သင့်ရပ်ရွာကို ကူညီပါ
+            </p>
           </CardHeader>
           <CardContent className="p-4 sm:p-6">
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
@@ -178,7 +217,9 @@ export default function AddPricePage() {
                     type="number"
                     placeholder="ဥပမာ - 1500"
                     value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, price: e.target.value })
+                    }
                     min="0"
                     step="0.01"
                     className="text-lg sm:text-xl md:text-2xl py-3 sm:py-4 px-3 sm:px-4 border-2 rounded-xl focus:border-primary-400 focus:ring-2 sm:focus:ring-4 focus:ring-primary-100 text-center font-bold"
@@ -188,7 +229,8 @@ export default function AddPricePage() {
                   </div>
                 </div>
                 <p className="text-xs sm:text-sm text-gray-500 text-center">
-                  ဤကုန်ပစ္စည်းအတွက် သင်ပေးခဲ့သော သို့မဟုတ် တွေ့ရှိခဲ့သော စျေးနှုန်းကို ရိုက်ထည့်ပါ
+                  ဤကုန်ပစ္စည်းအတွက် သင်ပေးခဲ့သော သို့မဟုတ် တွေ့ရှိခဲ့သော
+                  စျေးနှုန်းကို ရိုက်ထည့်ပါ
                 </p>
               </div>
 
@@ -205,10 +247,14 @@ export default function AddPricePage() {
                   id="location"
                   placeholder="ဥပမာ - ရန်ကုန် ဗဟိုဈေး၊ မန္တလေး မြို့လယ်၊ ပုဂံ မြို့နယ်"
                   value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, location: e.target.value })
+                  }
                   className="py-2 sm:py-3 text-sm sm:text-base border-2 rounded-xl focus:border-primary-400 focus:ring-2 sm:focus:ring-4 focus:ring-primary-100"
                 />
-                <p className="text-xs sm:text-sm text-gray-500">ဈေး၊ ဆိုင်၊ သို့မဟုတ် ဧရိယာ အကြောင်း တိကျစွာ ဖော်ပြပါ</p>
+                <p className="text-xs sm:text-sm text-gray-500">
+                  ဈေး၊ ဆိုင်၊ သို့မဟုတ် ဧရိယာ အကြောင်း တိကျစွာ ဖော်ပြပါ
+                </p>
               </div>
 
               {/* Reporter Name */}
@@ -224,10 +270,14 @@ export default function AddPricePage() {
                   id="reportedBy"
                   placeholder="သင့်အမည် ရိုက်ထည့်ပါ"
                   value={formData.reportedBy}
-                  onChange={(e) => setFormData({ ...formData, reportedBy: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, reportedBy: e.target.value })
+                  }
                   className="py-2 sm:py-3 text-sm sm:text-base border-2 rounded-xl focus:border-primary-400 focus:ring-2 sm:focus:ring-4 focus:ring-primary-100"
                 />
-                <p className="text-xs sm:text-sm text-gray-500">သင့်အမည်သည် လူထုတွင် ယုံကြည်မှု တည်ဆောက်ရာတွင် ကူညီပါသည်</p>
+                <p className="text-xs sm:text-sm text-gray-500">
+                  သင့်အမည်သည် လူထုတွင် ယုံကြည်မှု တည်ဆောက်ရာတွင် ကူညီပါသည်
+                </p>
               </div>
 
               {/* Note */}
@@ -243,11 +293,15 @@ export default function AddPricePage() {
                   id="note"
                   placeholder="ဥပမာ - လက်ကားစျေး၊ လမ်းဘေး ရောင်းသူမှ၊ အစုလိုက် ဝယ်ယူမှု လျှော့စျေး၊ အရည်အသွေး မှတ်ချက်များ"
                   value={formData.note}
-                  onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, note: e.target.value })
+                  }
                   rows={3}
                   className="border-2 rounded-xl focus:border-primary-400 focus:ring-2 sm:focus:ring-4 focus:ring-primary-100 resize-none text-sm sm:text-base"
                 />
-                <p className="text-xs sm:text-sm text-gray-500">အခြား ဝယ်သူများကို ကူညီနိုင်သော အပိုအချက်အလက်များ မျှဝေပါ</p>
+                <p className="text-xs sm:text-sm text-gray-500">
+                  အခြား ဝယ်သူများကို ကူညီနိုင်သော အပိုအချက်အလက်များ မျှဝေပါ
+                </p>
               </div>
 
               {/* Submit Button */}
@@ -255,12 +309,23 @@ export default function AddPricePage() {
                 <Button
                   type="submit"
                   className="w-full py-3 sm:py-4 text-sm sm:text-base font-semibold bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600 shadow-lg rounded-xl transform transition-all duration-200 hover:scale-105"
+                  disabled={createPriceReportMutation.isPending}
                 >
-                  <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                  စျေးနှုန်း သတင်းပို့ရန်
+                  {createPriceReportMutation.isPending ? (
+                    <>
+                      <LoadingSpinner size="sm" className="mr-2" />
+                      သတင်းပို့နေသည်...
+                    </>
+                  ) : (
+                    <>
+                      <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                      စျေးနှုန်း သတင်းပို့ရန်
+                    </>
+                  )}
                 </Button>
                 <p className="text-center text-xs sm:text-sm text-gray-500 mt-2 sm:mt-3">
-                  သင့်ရပ်ရွာကို ပိုမိုကောင်းမွန်သော ဆုံးဖြတ်ချက်များ ချမှတ်ရာတွင် ကူညီပေးသည့်အတွက် ကျေးဇူးတင်ပါသည်!
+                  သင့်ရပ်ရွာကို ပိုမိုကောင်းမွန်သော ဆုံးဖြတ်ချက်များ
+                  ချမှတ်ရာတွင် ကူညီပေးသည့်အတွက် ကျေးဇူးတင်ပါသည်!
                 </p>
               </div>
             </form>
@@ -268,5 +333,5 @@ export default function AddPricePage() {
         </Card>
       </main>
     </div>
-  )
+  );
 }

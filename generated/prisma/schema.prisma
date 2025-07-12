@@ -1,0 +1,59 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql" // Change to "postgresql", "mysql", etc. for production
+  url      = env("DATABASE_URL")
+}
+
+model BaseProduct {
+  id        String   @id @default(cuid())
+  name      String
+  category  String
+  createdBy String
+  createdAt DateTime @default(now())
+  imageUrl  String?
+
+  // Relations
+  variants ProductVariant[]
+
+  @@index([category])
+}
+
+model ProductVariant {
+  id            String  @id @default(cuid())
+  baseProductId String
+  variantName   String
+  unit          String
+  sizeValue     Float?
+  barcode       String?
+  imageUrl      String?
+  createdBy     String
+
+  // Relations
+  baseProduct  BaseProduct   @relation(fields: [baseProductId], references: [id], onDelete: Cascade)
+  priceReports PriceReport[]
+
+  @@index([baseProductId])
+  @@index([barcode])
+}
+
+model PriceReport {
+  id         String   @id @default(cuid())
+  variantId  String
+  price      Float
+  location   String
+  reportedBy String
+  reportedAt DateTime @default(now())
+  note       String?
+
+  // Relations
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([variantId])
+  @@index([reportedAt])
+}

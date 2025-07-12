@@ -3,8 +3,9 @@
 import type React from "react";
 import { Noto_Sans_Myanmar } from "next/font/google";
 import "./globals.css";
-import { useEffect } from "react"; // Import useEffect
-import { migrateLocalStorageData } from "@/lib/data-migration"; // Import migration function
+import { useEffect } from "react";
+import { migrateLocalStorageData } from "@/lib/data-migration";
+import { ReactQueryProvider } from "@/lib/react-query";
 
 const noto = Noto_Sans_Myanmar({
   subsets: ["myanmar"],
@@ -23,7 +24,9 @@ export default function ClientLayout({
 
   return (
     <html lang="my">
-      <body className={noto.className}>{children}</body>
+      <body className={noto.className}>
+        <ReactQueryProvider>{children}</ReactQueryProvider>
+      </body>
     </html>
   );
 }

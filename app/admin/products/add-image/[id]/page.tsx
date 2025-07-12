@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { BaseProduct, ProductVariant } from "@/types/product";
+import { useBaseProduct, useVariant } from "@/hooks/use-api";
+import { LoadingSpinner } from "@/components/loading-spinner";
 
 export default function AddImagePage() {
   const params = useParams();
@@ -17,32 +19,19 @@ export default function AddImagePage() {
   const baseProductId = params.id as string;
   const variantId = searchParams.get("variantId");
 
-  const [baseProduct, setBaseProduct] = useState<BaseProduct | null>(null);
-  const [variant, setVariant] = useState<ProductVariant | null>(null);
+  const { data: baseProductData, isLoading: isLoadingBaseProduct } =
+    useBaseProduct(baseProductId);
+  const { data: variantData, isLoading: isLoadingVariant } = useVariant(
+    variantId || ""
+  );
+
   const [imageUrl, setImageUrl] = useState("");
   const [currentImageUrl, setCurrentImageUrl] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const savedBaseProducts = localStorage.getItem("baseProducts");
-    const savedProductVariants = localStorage.getItem("productVariants");
+    // Check if there's an imageUrl in localStorage
     const productImages = localStorage.getItem("productImages");
-
-    if (savedBaseProducts) {
-      const parsedBaseProducts: BaseProduct[] = JSON.parse(savedBaseProducts);
-      const foundBaseProduct = parsedBaseProducts.find(
-        (bp) => bp.id === baseProductId
-      );
-      setBaseProduct(foundBaseProduct || null);
-    }
-
-    if (variantId && savedProductVariants) {
-      const parsedProductVariants: ProductVariant[] =
-        JSON.parse(savedProductVariants);
-      const foundVariant = parsedProductVariants.find(
-        (v) => v.id === variantId
-      );
-      setVariant(foundVariant || null);
-    }
 
     if (productImages) {
       const parsedImages = JSON.parse(productImages);
@@ -56,21 +45,43 @@ export default function AddImagePage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
     if (!imageUrl.trim()) {
       alert("ကျေးဇူးပြု၍ ပုံ URL ထည့်ပါ");
+      setIsSubmitting(false);
       return;
     }
 
-    // Save the image URL
-    const productImages = localStorage.getItem("productImages") || "{}";
-    const parsedImages = JSON.parse(productImages);
-    const targetId = variantId || baseProductId;
-    parsedImages[targetId] = imageUrl.trim();
-    localStorage.setItem("productImages", JSON.stringify(parsedImages));
+    try {
+      // Save the image URL (still using localStorage temporarily until API supports images)
+      const productImages = localStorage.getItem("productImages") || "{}";
+      const parsedImages = JSON.parse(productImages);
+      const targetId = variantId || baseProductId;
+      parsedImages[targetId] = imageUrl.trim();
+      localStorage.setItem("productImages", JSON.stringify(parsedImages));
 
-    router.push("/admin/products");
+      router.push("/admin/products");
+    } catch (error) {
+      console.error("Error saving image URL:", error);
+      alert("ပုံ URL သိမ်းဆည်းရာတွင် အမှားရှိနေပါသည်။");
+      setIsSubmitting(false);
+    }
   };
+
+  const isLoading = isLoadingBaseProduct || (variantId && isLoadingVariant);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  const baseProduct = baseProductData;
+  const variant = variantData;
+  const displayName = variant ? variant.variantName : baseProduct?.name;
 
   return (
     <div className="min-h-screen">
@@ -96,7 +107,7 @@ export default function AddImagePage() {
         <Card className="border-2 border-gray-100 shadow-lg">
           <CardHeader>
             <CardTitle className="text-center text-xl">
-              {variant ? variant.variantName : baseProduct?.name} - ပုံထည့်ရန်
+              {displayName} - ပုံထည့်ရန်
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -106,7 +117,7 @@ export default function AddImagePage() {
                 <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
                   <img
                     src={currentImageUrl}
-                    alt={variant ? variant.variantName : baseProduct?.name}
+                    alt={displayName}
                     className="max-w-full max-h-full object-contain"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
@@ -136,8 +147,13 @@ export default function AddImagePage() {
               <Button
                 type="submit"
                 className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+                disabled={isSubmitting}
               >
-                <Save className="h-4 w-4 mr-2" />
+                {isSubmitting ? (
+                  <LoadingSpinner size="sm" className="mr-2" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
                 သိမ်းဆည်းမည်
               </Button>
             </form>
